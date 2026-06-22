@@ -388,6 +388,10 @@ class MarketRepository(private val context: Context) {
         return dao.getUserProfile("me") ?: UserProfile(username = "New User")
     }
 
+    suspend fun getProfileById(id: String): UserProfile? {
+        return dao.getUserProfile(id)
+    }
+
     suspend fun saveProfile(profile: UserProfile) {
         dao.insertProfile(profile)
     }

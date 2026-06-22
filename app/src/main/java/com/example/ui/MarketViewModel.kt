@@ -7,6 +7,7 @@ import com.example.data.*
 import com.example.network.GeminiManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 
 enum class MainSection {
     DASHBOARD,
@@ -109,9 +110,88 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
     // --- UI Info/Error Alerts ---
     val alertMessage = MutableStateFlow<String?>(null)
 
+    // --- Google Login Session States ---
+    private val appPrefs = getApplication<Application>().getSharedPreferences("kat_market_google_auth", android.content.Context.MODE_PRIVATE)
+    val isLoggedIn = MutableStateFlow(appPrefs.getBoolean("is_logged_in", false))
+    val loggedInEmail = MutableStateFlow(appPrefs.getString("logged_in_email", ""))
+
+    fun loginWithGoogle(email: String, username: String, templateId: String? = null) {
+        viewModelScope.launch {
+            appPrefs.edit()
+                .putBoolean("is_logged_in", true)
+                .putString("logged_in_email", email)
+                .putString("logged_in_username", username)
+                .apply()
+
+            // Synchronize the DB "me" profile based on the selected Google Sign-In identity
+            val defaultMe = repository.getMeProfile()
+
+            if (templateId != null) {
+                val dbTemplate = repository.getProfileById(templateId)
+                if (dbTemplate != null) {
+                    repository.saveProfile(dbTemplate.copy(id = "me", username = username))
+                }
+            } else {
+                // Custom user login
+                repository.saveProfile(
+                    UserProfile(
+                        id = "me",
+                        username = username,
+                        role = "Normal User",
+                        reputation = 100,
+                        walletBalance = 5000000L,
+                        bankBalance = 15000000L,
+                        coinBalance = 500,
+                        title = "Custom Google Trader"
+                    )
+                )
+            }
+
+            isLoggedIn.value = true
+            loggedInEmail.value = email
+            
+            repository.addNotification("Google Sign-In Connected", "Logged in securely via $email.", "REWARD")
+            repository.insertAuditLog(AuditLog(username, "Google Sign-In", "Successfully authenticated via $email account."))
+            alertMessage.value = "Welcome back, $username! Connected via Google."
+        }
+    }
+
+    fun logoutGoogle() {
+        viewModelScope.launch {
+            val username = appPrefs.getString("logged_in_username", "User")
+            appPrefs.edit().clear().apply()
+            
+            isLoggedIn.value = false
+            loggedInEmail.value = ""
+            
+            // Reset "me" profile back to seeded default on next login or default NIKA_BOSS_RP
+            repository.saveProfile(
+                UserProfile(
+                    id = "me",
+                    username = "NIKA_BOSS_RP",
+                    role = "Normal User",
+                    reputation = 94,
+                    walletBalance = 125000000L,
+                    bankBalance = 450000000L,
+                    coinBalance = 2450,
+                    familyName = "Nika Syndicate",
+                    title = "Elite Trader",
+                    avatarIndex = 3,
+                    completedDeals = 45,
+                    vouchesCount = 18
+                )
+            )
+            
+            selectedListing.value = null
+            currentSection.value = MainSection.DASHBOARD
+            alertMessage.value = "Successfully logged out from $username Google Session."
+        }
+    }
+
     init {
         viewModelScope.launch {
             repository.initializeDatabaseIfNeeded()
+            startRealTimeFeedSimulator()
         }
     }
 
@@ -1225,6 +1305,198 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
             } else {
                 alertMessage.value = "Welcome back to the Discord community server! Re-synchronizing roles..."
                 repository.addNotification("Discord Server Joined", "Connected back to Discord server. Sync roles requested.", "INFO")
+            }
+        }
+    }
+
+    private fun startRealTimeFeedSimulator() {
+        viewModelScope.launch {
+            // Continually simulated background real-time board updates (Listings, Chats, Live offers)
+            while (isActive) {
+                // Delay randomly between 12 to 18 seconds
+                kotlinx.coroutines.delay(kotlin.random.Random.nextLong(12000, 18000))
+
+                // Select a simulated task
+                val task = kotlin.random.Random.nextInt(5)
+                val mockPlayers = listOf("Aditya_Grand", "Roman_Vercetti", "Alisa_Petrova", "Marcus_M5", "Officer_Ivan", "Nika_Loyal", "Boss_RP", "Dmitry_Sokolov", "Elena_GTR")
+                val sender = mockPlayers.random()
+
+                when (task) {
+                    0 -> {
+                        // Action 1: Add a new simulated Market Listing
+                        val categories = listOf("Vehicle", "Property", "Business", "Skin", "Item")
+                        val category = categories.random()
+                        
+                        val title = when (category) {
+                            "Vehicle" -> listOf(
+                                "Mercedes-Benz G63 AMG Brabus",
+                                "Lamborghini Huracán Evo Spyder",
+                                "Porsche 911 Turbo S",
+                                "Nissan GT-R Stage 3",
+                                "BMW M5 F90 Stage 4"
+                            ).random()
+                            "Property" -> listOf(
+                                "Vinewood Hills Villa #108",
+                                "Paleto Bay Beachfront House",
+                                "Downtown Penthouse Suite",
+                                "Mirror Park Suburban Condo"
+                            ).random()
+                            "Business" -> listOf(
+                                "Gas Station #12 Premium",
+                                "24/7 Store Rockford Hills",
+                                "Ammunation Gun Shop Vinewood",
+                                "Custom Tuning Workshop Central"
+                            ).random()
+                            "Skin" -> listOf(
+                                "Gold Syndicate Kevlar Suit",
+                                "Desert Camo Tactical Armor",
+                                "White Tuxedo Vercetti Spec"
+                            ).random()
+                            else -> listOf(
+                                "Sovereign Gold Watch",
+                                "Level 3 Tactical Military Backpack",
+                                "VIP Double Coin Booster",
+                                "Rare Licence Plate: B0SS_RP"
+                            ).random()
+                        }
+
+                        val subType = when (category) {
+                            "Vehicle" -> "Car"
+                            "Property" -> "House"
+                            "Business" -> "Store"
+                            "Skin" -> "Apparel"
+                            else -> "Hardware"
+                        }
+
+                        val baseVal = when (category) {
+                            "Vehicle" -> kotlin.random.Random.nextLong(20000000, 150000000)
+                            "Property" -> kotlin.random.Random.nextLong(50000000, 400000000)
+                            "Business" -> kotlin.random.Random.nextLong(80000000, 600000000)
+                            else -> kotlin.random.Random.nextLong(500000, 15000000)
+                        }
+
+                        val askVal = (baseVal * (1.0 + kotlin.random.Random.nextDouble(-0.1, 0.25))).toLong()
+
+                        val newListing = MarketListing(
+                            title = title,
+                            category = category,
+                            subType = subType,
+                            statePrice = baseVal,
+                            askingPrice = askVal,
+                            ownerCount = kotlin.random.Random.nextInt(1, 4),
+                            location = listOf("Chamberlain Hills", "Vespucci", "Vinewood", "Mirror Park", "Downtown").random(),
+                            licensePlate = "RP" + kotlin.random.Random.nextInt(100, 999) + listOf("HA", "XY", "AM", "KK").random(),
+                            profitDaily = if (category == "Business") kotlin.random.Random.nextLong(150000, 2500000) else 0L,
+                            notes = listOf("Selling fast for quick cash transfer. Non-negotiable.", "Stage 3 tuned with custom engine smoke.", "Clean license registry passport included.", "Urgent trade! Going to family clan raid.").random(),
+                            sellerId = sender.lowercase(),
+                            sellerName = sender,
+                            sellerReputation = kotlin.random.Random.nextInt(85, 100),
+                            isVerifiedSeller = kotlin.random.Random.nextBoolean(),
+                            isFeatured = kotlin.random.Random.nextDouble() < 0.25,
+                            isUrgent = kotlin.random.Random.nextDouble() < 0.35,
+                            imageUrl = "ic_launcher_foreground",
+                            images = if (category == "Vehicle") listOf("bulletproof_m5_neon.png") else if (category == "Property") listOf("modern_villa_hillside.png") else emptyList(),
+                            mediaStatus = "APPROVED",
+                            watermarked = false
+                        )
+
+                        repository.createNewListing(newListing)
+                        repository.addNotification(
+                            "⚡ Live Listing Alert",
+                            "$sender posted a new $category listing: \"$title\" for \$${formatCurrencySimulated(askVal)}!",
+                            "INFO"
+                        )
+                        repository.insertAuditLog(AuditLog(sender, "Simulated Publish", "Listed $title for \$${formatCurrencySimulated(askVal)} on the board."))
+                    }
+                    1 -> {
+                        // Action 2: Simulate Chat message in community channels
+                        val activeChannels = listOf(
+                            -1 to "🎯 general-marketplace",
+                            -2 to "🏎️ vehicle-exchange",
+                            -3 to "🏠 property-trading",
+                            -4 to "💼 business-deals",
+                            -5 to "👥 syndicate-alliance",
+                            -6 to "👑 high-net-worth-lounge"
+                        )
+                        val (chId, chName) = activeChannels.random()
+                        simulateGroupChatMessage(chId, chName)
+                    }
+                    2 -> {
+                        // Action 3: Simulate an offer made on the user's active listings (if any)
+                        allListings.value.filter { it.sellerId == "me" && it.status == "ACTIVE" }.let { myListings ->
+                            if (myListings.isNotEmpty()) {
+                                val targetListing = myListings.random()
+                                val bidMultiplier = listOf(0.85, 0.90, 0.95, 1.0, 1.05).random()
+                                val bidAmt = (targetListing.askingPrice * bidMultiplier).toLong()
+
+                                val offer = NegotiationOffer(
+                                    listingId = targetListing.id,
+                                    listingTitle = targetListing.title,
+                                    buyerId = sender.lowercase(),
+                                    buyerName = sender,
+                                    sellerId = "me",
+                                    sellerName = "me_user",
+                                    amount = bidAmt,
+                                    message = listOf(
+                                        "Hey boss, direct cash in hand deal! Ready to buy right now.",
+                                        "Is this price fully negotiable? I can offer you cash.",
+                                        "Sent a counter offer, deal instant wire at bank vault?",
+                                        "Would love to inspect document license pass first."
+                                    ).random()
+                                )
+
+                                repository.insertNegotiationOffer(offer)
+                                repository.addNotification(
+                                    "🤝 New Offer Received",
+                                    "$sender submitted an offer of \$${formatCurrencySimulated(bidAmt)} for your '${targetListing.title}'!",
+                                    "REWARD"
+                                )
+                                repository.insertAuditLog(AuditLog(sender, "Negotiation Offer Received", "Made live offer for user's ${targetListing.title}."))
+                            }
+                        }
+                    }
+                    3 -> {
+                        // Action 4: Simulate a chat message inside an open user trade-room/chat if we have one
+                        val meRooms = tradeRooms.value.filter { it.status == "PENDING_COMPLETION" }
+                        if (meRooms.isNotEmpty()) {
+                            val chosenRoom = meRooms.random()
+                            val otherParty = if (chosenRoom.buyerId == "me") chosenRoom.sellerName else chosenRoom.buyerName
+                            val replyText = listOf(
+                                "I have uploaded the legal passport. Check it.",
+                                "Escrow balance secured! Please publish your transfer.",
+                                "Is support staff online in case we need escrow oversight?",
+                                "Excellent trading with you! Best quality of deal."
+                            ).random()
+
+                            repository.insertReceivedChatMessage(
+                                ChatMessage(
+                                    listingId = chosenRoom.listingId,
+                                    listingTitle = chosenRoom.listingTitle,
+                                    senderId = otherParty.lowercase(),
+                                    senderName = otherParty,
+                                    receiverId = "me",
+                                    receiverName = "me_user",
+                                    message = replyText,
+                                    timestamp = System.currentTimeMillis()
+                                )
+                            )
+                            repository.addNotification("New Trade Chat", "$otherParty sent: \"$replyText\" inside escrow channel.", "INFO")
+                        }
+                    }
+                    4 -> {
+                        // Action 5: Simulate a background RCD transaction completion notice
+                        val otherParty = sender
+                        val assetName = listOf("Bugatti Chiron Blue Custom", "Vespucci Villa Penthouse", "Rockford Hills 24/7 Store", "Custom VIP Faction Pass").random()
+                        val value = kotlin.random.Random.nextLong(10000000, 200000000)
+
+                        repository.addNotification(
+                            "🎉 Deal Completed",
+                            "Vetted trade completed: $otherParty successfully obtained $assetName via verified Escrow agent!",
+                            "REWARD"
+                        )
+                        repository.insertAuditLog(AuditLog("Escrow Bot", "Vetted Transaction Completed", "Secured Escrow trade of $assetName valued at \$${formatCurrencySimulated(value)}."))
+                    }
+                }
             }
         }
     }

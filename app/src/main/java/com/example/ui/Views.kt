@@ -57,6 +57,12 @@ fun MainAppScreen(viewModel: MarketViewModel) {
     val alertMsg by viewModel.alertMessage.collectAsState()
     val selectedListing by viewModel.selectedListing.collectAsState()
 
+    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+    if (!isLoggedIn) {
+        LoginScreen(viewModel = viewModel)
+        return
+    }
+
     var showCreateListingDialog by remember { mutableStateOf(false) }
     var showAiAssistantMenu by remember { mutableStateOf(false) }
 
@@ -503,6 +509,521 @@ fun MainAppScreen(viewModel: MarketViewModel) {
     if (showCreateListingDialog) {
         CreateListingDialog(viewModel = viewModel) {
             showCreateListingDialog = false
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun LoginScreen(viewModel: MarketViewModel) {
+    val context = LocalContext.current
+    var isAuthenticating by remember { mutableStateOf(false) }
+    var showAccountSelector by remember { mutableStateOf(false) }
+    var showCustomInput by remember { mutableStateOf(false) }
+    var showDisplayNamePrompt by remember { mutableStateOf(false) }
+
+    var customNameInput by remember { mutableStateOf("") }
+    var customEmailInput by remember { mutableStateOf("") }
+
+    var pendingEmail by remember { mutableStateOf("") }
+    var pendingUsername by remember { mutableStateOf("") }
+    var pendingTemplateId by remember { mutableStateOf<String?>(null) }
+    var displayNameInput by remember { mutableStateOf("") }
+
+    val scope = rememberCoroutineScope()
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(DeepSlateBg, CardSlateBg)
+                )
+            )
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Elegant Emblem Box
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .background(GoldAccent.copy(alpha = 0.15f), RoundedCornerShape(24.dp))
+                    .border(2.dp, GoldAccent, RoundedCornerShape(24.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("K", fontWeight = FontWeight.Black, color = GoldAccent, fontSize = 42.sp)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Application name Display
+            Text(
+                "KAT_MARKET",
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp,
+                color = Color.White,
+                fontSize = 32.sp
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Subtitle
+            Text(
+                "Secure RP Trading & Escrow Core",
+                color = SoftGrayText,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Highlight features
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = CardSlateBg),
+                border = BorderStroke(1.dp, ElevatedSlate),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    LoginFeatureRow(icon = "🛡️", title = "Escrow Safeguards", description = "Vetted real currency deals with 24/7 staff support.")
+                    LoginFeatureRow(icon = "🔒", title = "Google OAuth 2.0", description = "Secure and fast authentication with cloud-vault.")
+                    LoginFeatureRow(icon = "📈", title = "Real-Time Pricing", description = "Track M5s, mansions, and retail value indexes dynamically.")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Main Google Sign-In Button
+            if (isAuthenticating) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(color = GoldAccent, modifier = Modifier.size(36.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "Connecting secure cloud sessions...",
+                        color = SoftGrayText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else {
+                Button(
+                    onClick = { showAccountSelector = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("google_login_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        // Custom drawing of Google character logo style
+                        Text("G", fontWeight = FontWeight.Bold, color = Color(0xFF4285F4), fontSize = 20.sp)
+                        Text("o", fontWeight = FontWeight.Bold, color = Color(0xFFEA4335), fontSize = 20.sp)
+                        Text("o", fontWeight = FontWeight.Bold, color = Color(0xFFFBBC05), fontSize = 20.sp)
+                        Text("g", fontWeight = FontWeight.Bold, color = Color(0xFF4285F4), fontSize = 20.sp)
+                        Text("l", fontWeight = FontWeight.Bold, color = Color(0xFF34A853), fontSize = 20.sp)
+                        Text("e", fontWeight = FontWeight.Bold, color = Color(0xFFEA4335), fontSize = 20.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            "Sign In with Google",
+                            color = Color(0xFF1E293B),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                "By signing in, you agree to official Grand RP Fair Trading guidelines.",
+                color = MutedText,
+                fontSize = 10.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+
+    // Google Account Chooser Dialog
+    if (showAccountSelector) {
+        Dialog(onDismissRequest = { showAccountSelector = false }) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = CardSlateBg),
+                border = BorderStroke(1.dp, ElevatedSlate)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Google logo header inside chooser
+                    Row(
+                        modifier = Modifier.padding(bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text("G", fontWeight = FontWeight.Black, color = Color(0xFF4285F4), fontSize = 20.sp)
+                        Text("o", fontWeight = FontWeight.Black, color = Color(0xFFEA4335), fontSize = 20.sp)
+                        Text("o", fontWeight = FontWeight.Black, color = Color(0xFFFBBC05), fontSize = 20.sp)
+                        Text("g", fontWeight = FontWeight.Black, color = Color(0xFF4285F4), fontSize = 20.sp)
+                        Text("l", fontWeight = FontWeight.Black, color = Color(0xFF34A853), fontSize = 20.sp)
+                        Text("e", fontWeight = FontWeight.Black, color = Color(0xFFEA4335), fontSize = 20.sp)
+                    }
+                    Text("Choose an account", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+                    Text("to continue to KAT_MARKET", color = SoftGrayText, fontSize = 11.sp)
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Account options lists
+                    val googleAccounts = listOf(
+                        Triple("nika_boss@gmail.com", "NIKA_BOSS_RP", "Elite Trader"),
+                        Triple("adityaghatule30@gmail.com", "Aditya_Grand", "Marketplace Legend"),
+                        Triple("roman_vercetti@gmail.com", "Roman_Vercetti", "Business Tycoon")
+                    )
+
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        googleAccounts.forEach { (email, username, subtitle) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(ElevatedSlate)
+                                    .clickable {
+                                        showAccountSelector = false
+                                        val templateId = when (username) {
+                                            "Aditya_Grand" -> "u2"
+                                            "Roman_Vercetti" -> "u3"
+                                            else -> null
+                                        }
+                                        pendingEmail = email
+                                        pendingUsername = username
+                                        pendingTemplateId = templateId
+                                        displayNameInput = username
+                                        showDisplayNamePrompt = true
+                                    }
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Avatar Circle
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(GoldAccent),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        username.take(1).uppercase(),
+                                        color = DeepSlateBg,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(username, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    Text(email, color = SoftGrayText, fontSize = 11.sp)
+                                }
+                            }
+                        }
+
+                        // Add another custom account option
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .border(1.dp, MutedText, RoundedCornerShape(10.dp))
+                                .clickable {
+                                    showAccountSelector = false
+                                    showCustomInput = true
+                                }
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Add account", tint = GoldAccent, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Use another Google account", color = GoldAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TextButton(onClick = { showAccountSelector = false }) {
+                        Text("Cancel", color = Color.Gray)
+                    }
+                }
+            }
+        }
+    }
+
+    // Custom Account Input Dialog
+    if (showCustomInput) {
+        Dialog(onDismissRequest = { showCustomInput = false }) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = CardSlateBg),
+                border = BorderStroke(1.dp, ElevatedSlate)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Add dynamic account", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = customNameInput,
+                        onValueChange = { customNameInput = it },
+                        label = { Text("RP Username (e.g., Roman_Boss)", color = MutedText) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = GoldAccent,
+                            unfocusedBorderColor = ElevatedSlate
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = customEmailInput,
+                        onValueChange = { customEmailInput = it },
+                        label = { Text("Google Email", color = MutedText) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = GoldAccent,
+                            unfocusedBorderColor = ElevatedSlate
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TextButton(
+                            onClick = { showCustomInput = false },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Back", color = Color.Gray)
+                        }
+
+                        Button(
+                            onClick = {
+                                if (customNameInput.isNotBlank() && customEmailInput.isNotBlank()) {
+                                    showCustomInput = false
+                                    pendingEmail = customEmailInput
+                                    pendingUsername = customNameInput.trim().replace(" ", "_")
+                                    pendingTemplateId = null
+                                    displayNameInput = customNameInput.trim()
+                                    showDisplayNamePrompt = true
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Next", color = DeepSlateBg, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Display Name Prompt Dialog
+    if (showDisplayNamePrompt) {
+        Dialog(onDismissRequest = { showDisplayNamePrompt = false }) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = CardSlateBg),
+                border = BorderStroke(1.5.dp, GoldAccent)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "Set Display Name",
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Configure your market trading identity",
+                        color = SoftGrayText,
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Live Profile Preview Area
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(GoldAccent.copy(alpha = 0.15f))
+                            .border(1.5.dp, GoldAccent, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            if (displayNameInput.isBlank()) "?" else displayNameInput.take(1).uppercase(),
+                            color = GoldAccent,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 28.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Input Field
+                    OutlinedTextField(
+                        value = displayNameInput,
+                        onValueChange = { 
+                            if (it.length <= 20) {
+                                displayNameInput = it
+                            }
+                        },
+                        label = { Text("Display Name", color = MutedText) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = GoldAccent,
+                            unfocusedBorderColor = ElevatedSlate,
+                            focusedLabelColor = GoldAccent,
+                            unfocusedLabelColor = MutedText
+                        ),
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("display_name_input")
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Visible publicly in transactions",
+                            color = MutedText,
+                            fontSize = 10.sp
+                        )
+                        Text(
+                            "${displayNameInput.length}/20",
+                            color = if (displayNameInput.length >= 18) RedUrgent else MutedText,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Button actions
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TextButton(
+                            onClick = { 
+                                showDisplayNamePrompt = false 
+                                if (pendingUsername.isNotBlank() && pendingUsername.contains("_") && !pendingEmail.contains("gmail")) {
+                                    showCustomInput = true
+                                } else {
+                                    showAccountSelector = true
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Back", color = Color.Gray, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                if (displayNameInput.isNotBlank()) {
+                                    showDisplayNamePrompt = false
+                                    isAuthenticating = true
+                                    scope.launch {
+                                        kotlinx.coroutines.delay(1200)
+                                        isAuthenticating = false
+                                        viewModel.loginWithGoogle(
+                                            email = pendingEmail,
+                                            username = displayNameInput.trim().replace(" ", "_"),
+                                            templateId = pendingTemplateId
+                                        )
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
+                            enabled = displayNameInput.isNotBlank(),
+                            modifier = Modifier
+                                .weight(1.3f)
+                                .testTag("display_name_confirm_button"),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Secure Login", color = DeepSlateBg, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LoginFeatureRow(icon: String, title: String, description: String) {
+    Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(ElevatedSlate, RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(icon, fontSize = 18.sp)
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(description, color = SoftGrayText, fontSize = 11.sp)
         }
     }
 }
@@ -4872,9 +5393,19 @@ fun AdministrationView(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Button(
-                    onClick = { viewModel.triggerFactoryCleanup() },
+                    onClick = { viewModel.logoutGoogle() },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = RedUrgent)
+                ) {
+                    Text("Log Out from Google Connection", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = { viewModel.triggerFactoryCleanup() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = ElevatedSlate)
                 ) {
                     Text("Owner Factory Purge Reset", color = Color.White, fontWeight = FontWeight.Bold)
                 }
@@ -5870,6 +6401,11 @@ fun CreateListingDialog(viewModel: MarketViewModel, onDismiss: () -> Unit) {
     var autoFillStatusMessage by remember { mutableStateOf("") }
     var isAutoFillSuccess by remember { mutableStateOf<Boolean?>(null) } // null, true=success, false=failed
 
+    var carImageUploadFile by remember { mutableStateOf<String?>(null) }
+    var carLicenseUploadFile by remember { mutableStateOf<String?>(null) }
+    var houseImageUploadFile by remember { mutableStateOf<String?>(null) }
+    var activeSIMUploadType by remember { mutableStateOf<String?>(null) } // "CAR_IMG", "CAR_LIC", "HOUSE_IMG"
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier
@@ -6211,41 +6747,211 @@ fun CreateListingDialog(viewModel: MarketViewModel, onDismiss: () -> Unit) {
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Media proof files simulate upload checklist
-                var attachMainPhoto by remember { mutableStateOf(true) }
-                var attachLicensePhoto by remember { mutableStateOf(true) }
-                var attachDetailPhoto by remember { mutableStateOf(false) }
-                var inputVideoLink by remember { mutableStateOf("") }
-                var checkedWatermark by remember { mutableStateOf(true) }
+                // --- REQUIRED FILE & SCREENSHOT UPLOAD SECTION ---
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                if (stepCategory == "Vehicle") {
+                    Text("📸 REQUIRED VEHICLE IMAGES & CERTIFICATES", color = GoldAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                Spacer(modifier = Modifier.height(10.dp))
-                Text("📸 VERIFIED MEDIA ATTACHMENTS", color = GoldAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = attachMainPhoto, onCheckedChange = { attachMainPhoto = it })
-                            Text("Main Photo", color = SoftGrayText, fontSize = 10.sp)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = attachLicensePhoto, onCheckedChange = { attachLicensePhoto = it })
-                            Text("Lic. Proof", color = SoftGrayText, fontSize = 10.sp)
+                    // 1. Car Image Upload Card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { activeSIMUploadType = "CAR_IMG" },
+                        colors = CardDefaults.cardColors(containerColor = ElevatedSlate),
+                        border = BorderStroke(1.dp, if (carImageUploadFile != null) GreenVerify else GoldAccent.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(if (carImageUploadFile != null) GreenVerify.copy(alpha = 0.2f) else GoldAccent.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (carImageUploadFile != null) Icons.Default.CheckCircle else Icons.Default.Info,
+                                    contentDescription = "Car image upload",
+                                    tint = if (carImageUploadFile != null) GreenVerify else GoldAccent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Vehicle Display Image", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = carImageUploadFile ?: "Select official screenshot of the vehicle",
+                                    color = if (carImageUploadFile != null) GreenVerify else SoftGrayText,
+                                    fontSize = 10.sp
+                                )
+                            }
+                            Button(
+                                onClick = { activeSIMUploadType = "CAR_IMG" },
+                                colors = ButtonDefaults.buttonColors(containerColor = if (carImageUploadFile != null) ElevatedSlate else GoldAccent),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text(
+                                    text = if (carImageUploadFile != null) "Change" else "Browse",
+                                    color = if (carImageUploadFile != null) Color.White else DeepSlateBg,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = attachDetailPhoto, onCheckedChange = { attachDetailPhoto = it })
-                            Text("Detail Spec", color = SoftGrayText, fontSize = 10.sp)
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 2. Car License Upload Card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { activeSIMUploadType = "CAR_LIC" },
+                        colors = CardDefaults.cardColors(containerColor = ElevatedSlate),
+                        border = BorderStroke(1.5.dp, if (carLicenseUploadFile != null) GreenVerify else RedUrgent.copy(alpha = 0.6f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(if (carLicenseUploadFile != null) GreenVerify.copy(alpha = 0.2f) else RedUrgent.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (carLicenseUploadFile != null) Icons.Default.CheckCircle else Icons.Default.Lock,
+                                    contentDescription = "Car license upload",
+                                    tint = if (carLicenseUploadFile != null) GreenVerify else RedUrgent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Vehicle License / Tech Pass", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .background(RedUrgent, RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    ) {
+                                        Text("REQUIRED", color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                                    }
+                                }
+                                Text(
+                                    text = carLicenseUploadFile ?: "Upload official registration sheet (MANDATORY)",
+                                    color = if (carLicenseUploadFile != null) GreenVerify else SoftGrayText,
+                                    fontSize = 10.sp
+                                )
+                            }
+                            Button(
+                                onClick = { activeSIMUploadType = "CAR_LIC" },
+                                colors = ButtonDefaults.buttonColors(containerColor = if (carLicenseUploadFile != null) ElevatedSlate else RedUrgent),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text(
+                                    text = if (carLicenseUploadFile != null) "Change" else "Upload",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = checkedWatermark, onCheckedChange = { checkedWatermark = it })
-                            Text("Watermark", color = SoftGrayText, fontSize = 10.sp)
+                    }
+                } else if (stepCategory == "Property") {
+                    Text("📸 REQUIRED REAL ESTATE IMAGES", color = GoldAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // 1. House Image Upload Card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { activeSIMUploadType = "HOUSE_IMG" },
+                        colors = CardDefaults.cardColors(containerColor = ElevatedSlate),
+                        border = BorderStroke(1.dp, if (houseImageUploadFile != null) GreenVerify else GoldAccent.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(if (houseImageUploadFile != null) GreenVerify.copy(alpha = 0.2f) else GoldAccent.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (houseImageUploadFile != null) Icons.Default.CheckCircle else Icons.Default.Home,
+                                    contentDescription = "House image upload",
+                                    tint = if (houseImageUploadFile != null) GreenVerify else GoldAccent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Real Estate Display Image", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = houseImageUploadFile ?: "Select official screenshot of the property",
+                                    color = if (houseImageUploadFile != null) GreenVerify else SoftGrayText,
+                                    fontSize = 10.sp
+                                )
+                            }
+                            Button(
+                                onClick = { activeSIMUploadType = "HOUSE_IMG" },
+                                colors = ButtonDefaults.buttonColors(containerColor = if (houseImageUploadFile != null) ElevatedSlate else GoldAccent),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text(
+                                    text = if (houseImageUploadFile != null) "Change" else "Browse",
+                                    color = if (houseImageUploadFile != null) Color.White else DeepSlateBg,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // Standard media checkmarks for other categories
+                    var attachMainPhoto by remember { mutableStateOf(true) }
+                    var attachLicensePhoto by remember { mutableStateOf(true) }
+                    var attachDetailPhoto by remember { mutableStateOf(false) }
+
+                    Text("📸 VERIFIED MEDIA ATTACHMENTS", color = GoldAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = attachMainPhoto, onCheckedChange = { attachMainPhoto = it })
+                                Text("Main Photo", color = SoftGrayText, fontSize = 10.sp)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = attachLicensePhoto, onCheckedChange = { attachLicensePhoto = it })
+                                Text("Lic. Proof", color = SoftGrayText, fontSize = 10.sp)
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = attachDetailPhoto, onCheckedChange = { attachDetailPhoto = it })
+                                Text("Detail Spec", color = SoftGrayText, fontSize = 10.sp)
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                var inputVideoLink by remember { mutableStateOf("") }
+                var checkedWatermark by remember { mutableStateOf(true) }
+
                 OutlinedTextField(
                     value = inputVideoLink,
                     onValueChange = { inputVideoLink = it },
@@ -6272,14 +6978,56 @@ fun CreateListingDialog(viewModel: MarketViewModel, onDismiss: () -> Unit) {
                     }
                 }
 
+                // SUBMISSION VALIDATION LOGIC ENFORCEMENT
+                val isSubmitEnabled = when (stepCategory) {
+                    "Vehicle" -> carImageUploadFile != null && carLicenseUploadFile != null && inputTitle.isNotBlank() && inputAskingPrice.isNotBlank()
+                    "Property" -> houseImageUploadFile != null && inputTitle.isNotBlank() && inputAskingPrice.isNotBlank()
+                    else -> inputTitle.isNotBlank() && inputAskingPrice.isNotBlank()
+                }
+
+                if (!isSubmitEnabled && (stepCategory == "Vehicle" || stepCategory == "Property")) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0x33EF4444)),
+                        border = BorderStroke(1.dp, RedUrgent.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text("Missing Required Listing Assets", color = RedUrgent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            if (stepCategory == "Vehicle") {
+                                if (carImageUploadFile == null) {
+                                    Text("• Vehicle screenshot must be uploaded", color = Color.White, fontSize = 10.sp)
+                                }
+                                if (carLicenseUploadFile == null) {
+                                    Text("• Vehicle License document/Tech Pass must be uploaded (MANDATORY)", color = Color.White, fontSize = 10.sp)
+                                }
+                            } else if (stepCategory == "Property") {
+                                if (houseImageUploadFile == null) {
+                                    Text("• Property display image / House screenshot must be uploaded", color = Color.White, fontSize = 10.sp)
+                                }
+                            }
+                            if (inputTitle.isBlank() || inputAskingPrice.isBlank()) {
+                                Text("• Title and Asking price cannot be empty", color = Color.White, fontSize = 10.sp)
+                            }
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Button(
                     onClick = {
                         val finalImages = mutableListOf<String>()
-                        if (attachMainPhoto) finalImages.add("Main Screenshot Detail")
-                        if (attachLicensePhoto) finalImages.add("License Registry ID Proof")
-                        if (attachDetailPhoto) finalImages.add("Interior Engine Specifications Sheet")
+                        if (stepCategory == "Vehicle") {
+                            carImageUploadFile?.let { finalImages.add("Vehicle Image: $it") }
+                            carLicenseUploadFile?.let { finalImages.add("License Document: $it") }
+                        } else if (stepCategory == "Property") {
+                            houseImageUploadFile?.let { finalImages.add("Property Image: $it") }
+                        } else {
+                            finalImages.add("Main Screenshot Detail")
+                            finalImages.add("License Registry ID Proof")
+                        }
 
                         viewModel.createMarketListing(
                             title = inputTitle,
@@ -6302,9 +7050,109 @@ fun CreateListingDialog(viewModel: MarketViewModel, onDismiss: () -> Unit) {
                     },
                     modifier = Modifier.fillMaxWidth()
                         .testTag("submit_listing_button"),
-                    colors = ButtonDefaults.buttonColors(containerColor = GoldAccent)
+                    enabled = isSubmitEnabled,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isSubmitEnabled) GoldAccent else ElevatedSlate,
+                        disabledContainerColor = ElevatedSlate,
+                        disabledContentColor = Color.DarkGray
+                    )
                 ) {
-                    Text("Publish To Board", color = DeepSlateBg, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Publish To Board",
+                        color = if (isSubmitEnabled) DeepSlateBg else Color.Gray,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        }
+    }
+
+    // SIMULATED FILE RETRIEVAL SYSTEM DIALOG OVERLAY
+    if (activeSIMUploadType != null) {
+        Dialog(onDismissRequest = { activeSIMUploadType = null }) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = CardSlateBg),
+                border = BorderStroke(1.5.dp, GoldAccent)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    val label = when (activeSIMUploadType) {
+                        "CAR_IMG" -> "Select Vehicle Screenshot"
+                        "CAR_LIC" -> "Upload Vehicle License Pass"
+                        else -> "Select Real Estate Screenshot"
+                    }
+                    Text(label, color = GoldAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("Simulating raw file extraction from Grand RP storage index...", color = SoftGrayText, fontSize = 10.sp)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val options = when (activeSIMUploadType) {
+                        "CAR_IMG" -> listOf(
+                            "bulletproof_m5_neon.png" to "Street Racer M5 (Neon Gold theme)",
+                            "luxury_escalade_black.png" to "Grand SUV Escalade (Shadow edition)",
+                            "concept_blue_coupe.png" to "Coupe Concept (Vercetti Blue)",
+                            "hypercar_bullet_chrome.png" to "Hypercar Bullet (Gold Chrome)"
+                        )
+                        "CAR_LIC" -> listOf(
+                            "mvd_driver_permit.pdf" to "Official State Driver License ID",
+                            "syndicate_asset_registry.pdf" to "Vetted Asset Registration",
+                            "escrow_authority_permit.pdf" to "Grand RP Vehicle License Pass #84"
+                        )
+                        else -> listOf(
+                            "modern_villa_hillside.png" to "Mirror Park Hillside Villa",
+                            "mansion_pool_infinity.png" to "Richman Hills Premium Mansion",
+                            "beachfront_condo.png" to "Del Perro Beachfront Condo",
+                            "apartment_luxury_cz.png" to "Downtown Highrise Penthouse"
+                        )
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        options.forEach { (fileName, description) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(ElevatedSlate)
+                                    .clickable {
+                                        when (activeSIMUploadType) {
+                                            "CAR_IMG" -> carImageUploadFile = fileName
+                                            "CAR_LIC" -> carLicenseUploadFile = fileName
+                                            "HOUSE_IMG" -> houseImageUploadFile = fileName
+                                        }
+                                        activeSIMUploadType = null
+                                    }
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .background(GoldAccent.copy(alpha = 0.15f), RoundedCornerShape(4.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (fileName.endsWith(".pdf")) "📄" else "🖼️",
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(fileName, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(description, color = SoftGrayText, fontSize = 9.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    TextButton(
+                        onClick = { activeSIMUploadType = null },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text("Cancel", color = Color.Gray, fontSize = 12.sp)
+                    }
                 }
             }
         }
