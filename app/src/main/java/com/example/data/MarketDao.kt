@@ -258,4 +258,14 @@ interface MarketDao {
 
     @Query("DELETE FROM bounty_claims")
     suspend fun clearBountyClaims()
+
+    // --- Market Transaction Ledger ---
+    @Query("SELECT * FROM market_transactions ORDER BY timestamp DESC")
+    fun getAllMarketTransactionsFlow(): Flow<List<MarketTransaction>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMarketTransaction(transaction: MarketTransaction)
+
+    @Query("DELETE FROM market_transactions")
+    suspend fun clearMarketTransactions()
 }

@@ -27,9 +27,10 @@ import androidx.room.TypeConverters
         TradeRoom::class,
         ScammerReport::class,
         Bounty::class,
-        BountyClaim::class
+        BountyClaim::class,
+        MarketTransaction::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(DatabaseConverters::class)

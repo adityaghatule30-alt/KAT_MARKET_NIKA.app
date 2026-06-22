@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -63,7 +64,15 @@ fun MainAppScreen(viewModel: MarketViewModel) {
         return
     }
 
+    // PREMIUM CORE NAVIGATION IA STATE FLOWS
+    var activeTab by remember { mutableStateOf("home") } // "home", "market", "community", "profile"
+    var communitySubTab by remember { mutableStateOf(0) } // 0: Live Chats, 1: Families Syndicate, 2: Bounties, 3: Business Network, 4: Ads Promotion
+    var profileSubTab by remember { mutableStateOf(0) } // 0: Passport & Vouches, 1: Inventory Crates, 2: Savings FD, 3: Security Utilities Center
+    var activeMoreMenuItem by remember { mutableStateOf("") } // "RCD", "SCAMMER", "AI_ADVISOR", "STAFF_ADMIN"
+
     var showCreateListingDialog by remember { mutableStateOf(false) }
+    var initialCreateCategory by remember { mutableStateOf("Vehicle") }
+    var showCreationChoiceSheet by remember { mutableStateOf(false) }
     var showAiAssistantMenu by remember { mutableStateOf(false) }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -110,7 +119,7 @@ fun MainAppScreen(viewModel: MarketViewModel) {
                         Button(
                             onClick = {
                                 showAiAssistantMenu = false
-                                viewModel.selectSection(MainSection.AI_ADVISOR)
+                                activeMoreMenuItem = "AI_ADVISOR"
                                 viewModel.sendAiChat(prompt)
                             },
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -132,366 +141,535 @@ fun MainAppScreen(viewModel: MarketViewModel) {
         }
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet(
-                drawerContainerColor = CardSlateBg,
-                drawerContentColor = Color.White,
-                modifier = Modifier.width(280.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(CardSlateBg)
-                        .padding(16.dp)
-                ) {
-                    // Drawer Header
+    // MAIN APPLICATION SCENE
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .background(
+                                    Brush.linearGradient(listOf(GoldAccent, TechCyan)),
+                                    RoundedCornerShape(6.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("K", fontWeight = FontWeight.Black, color = Color.White, fontSize = 15.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Row {
+                            Text("KAT", fontWeight = FontWeight.Black, color = Color.White, fontSize = 15.sp)
+                            Text("_MARKET", fontWeight = FontWeight.Light, color = GoldAccent, fontSize = 15.sp)
+                        }
+                    }
+                },
+                actions = {
+                    // Coin balance indicator
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .background(ElevatedSlate, RoundedCornerShape(16.dp))
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = "Coins Balance",
+                            tint = CoinGold,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "${userProfile?.coinBalance ?: 0} KC",
+                            color = CoinGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    
+                    // Quick Robot companion access
+                    IconButton(onClick = { showAiAssistantMenu = true }) {
+                        Text("🤖", fontSize = 20.sp)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = DeepSlateBg,
+                    titleContentColor = Color.White
+                )
+            )
+        },
+        bottomBar = {
+            Surface(
+                color = CardSlateBg.copy(alpha = 0.95f),
+                tonalElevation = 8.dp,
+                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                border = BorderStroke(0.5.dp, ElevatedSlate),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(72.dp)
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 🏠 HOME TAB
+                    val isHome = activeTab == "home" && activeMoreMenuItem.isEmpty()
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                activeTab = "home"
+                                activeMoreMenuItem = ""
+                            }
+                            .padding(vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Home,
+                                contentDescription = "Home Desk",
+                                tint = if (isHome) TechCyan else MutedText,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "Home",
+                                color = if (isHome) Color.White else MutedText,
+                                fontSize = 10.sp,
+                                fontWeight = if (isHome) FontWeight.Bold else FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            AnimatedVisibility(
+                                visible = isHome,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(16.dp)
+                                        .height(3.dp)
+                                        .clip(CircleShape)
+                                        .background(TechCyan)
+                                )
+                            }
+                        }
+                    }
+
+                    // 🛒 MARKET TAB
+                    val isMarket = activeTab == "market" && activeMoreMenuItem.isEmpty()
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                activeTab = "market"
+                                activeMoreMenuItem = ""
+                            }
+                            .padding(vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.ShoppingCart,
+                                contentDescription = "Market Board",
+                                tint = if (isMarket) TechCyan else MutedText,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "Market",
+                                color = if (isMarket) Color.White else MutedText,
+                                fontSize = 10.sp,
+                                fontWeight = if (isMarket) FontWeight.Bold else FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            AnimatedVisibility(
+                                visible = isMarket,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(16.dp)
+                                        .height(3.dp)
+                                        .clip(CircleShape)
+                                        .background(TechCyan)
+                                )
+                            }
+                        }
+                    }
+
+                    // ➕ CREATE PROTRUDING FAB HUB
+                    Box(
+                        modifier = Modifier.weight(1.1f),
+                        contentAlignment = Alignment.Center
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
-                                .background(GoldAccent, RoundedCornerShape(10.dp)),
+                                .size(50.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(listOf(GoldAccent, TechCyan))
+                                )
+                                .clickable {
+                                    showCreationChoiceSheet = true
+                                },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("K", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 18.sp)
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            "KAT_MARKET",
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.2.sp,
-                            color = Color.White,
-                            fontSize = 18.sp
-                        )
-                    }
-
-                    // Profile Summary Widget in Sidebar
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        colors = CardDefaults.cardColors(containerColor = ElevatedSlate),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(GoldAccent),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        (userProfile?.username ?: "A").take(1).uppercase(),
-                                        color = DeepSlateBg,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text(
-                                        userProfile?.username ?: "Aditya",
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        fontSize = 13.sp
-                                    )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("🛡 Verified Trader", color = GreenVerify, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("💎 VIP", color = GoldAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Reputation Index", color = SoftGrayText, fontSize = 10.sp)
-                                Text("⭐ 95/100", color = GreenVerify, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-
-                    // Drawer Menu Items
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        val itemsList = listOf(
-                            "🏠 Dashboard" to {
-                                viewModel.selectSection(MainSection.DASHBOARD)
-                            },
-                            "🛒 Marketplace" to {
-                                viewModel.selectedCategoryFilter.value = "ALL"
-                                viewModel.selectSection(MainSection.MARKETPLACE)
-                            },
-                            "🚗 Vehicles" to {
-                                viewModel.selectedCategoryFilter.value = "Vehicle"
-                                viewModel.selectSection(MainSection.MARKETPLACE)
-                            },
-                            "🏠 Properties" to {
-                                viewModel.selectedCategoryFilter.value = "Property"
-                                viewModel.selectSection(MainSection.MARKETPLACE)
-                            },
-                            "🏢 Businesses" to {
-                                viewModel.selectSection(MainSection.BUSINESS_NETWORK)
-                            },
-                            "❤️ Wishlist [RCD]" to {
-                                viewModel.selectSection(MainSection.RCD_CENTER)
-                            },
-                            "💰 Coins Store" to {
-                                viewModel.selectSection(MainSection.INVENTORY)
-                            },
-                            "🎁 Rewards & Crates" to {
-                                viewModel.selectSection(MainSection.INVENTORY)
-                            },
-                            "👨‍👩‍👧‍👦 Families Alliance" to {
-                                viewModel.selectSection(MainSection.PROFILE_FAMILY)
-                            },
-                            "🎫 Support Chat" to {
-                                viewModel.selectSection(MainSection.CHATS)
-                            },
-                            "👤 Profile Passport" to {
-                                viewModel.selectSection(MainSection.PROFILE_FAMILY)
-                            },
-                            "⚙ Administration" to {
-                                viewModel.selectSection(MainSection.ADMINISTRATION)
-                            },
-                            "🛡️ Scammer Shield" to {
-                                viewModel.selectSection(MainSection.SCAMMER_SHIELD)
-                            },
-                            "🎯 Bounty Board" to {
-                                viewModel.selectSection(MainSection.BOUNTY_SYSTEM)
-                            }
-                        )
-
-                        items(itemsList) { (label, action) ->
-                            val isActive = when {
-                                label.contains("Dashboard") -> activeSection == MainSection.DASHBOARD
-                                label.contains("Marketplace") && viewModel.selectedCategoryFilter.value == "ALL" -> activeSection == MainSection.MARKETPLACE
-                                label.contains("Vehicles") && viewModel.selectedCategoryFilter.value == "Vehicle" -> activeSection == MainSection.MARKETPLACE
-                                label.contains("Properties") && viewModel.selectedCategoryFilter.value == "Property" -> activeSection == MainSection.MARKETPLACE
-                                label.contains("Businesses") -> activeSection == MainSection.BUSINESS_NETWORK
-                                label.contains("Wishlist") -> activeSection == MainSection.RCD_CENTER
-                                label.contains("Coins Store") -> activeSection == MainSection.INVENTORY
-                                label.contains("Rewards") -> activeSection == MainSection.INVENTORY
-                                label.contains("Families") -> activeSection == MainSection.PROFILE_FAMILY
-                                label.contains("Support") -> activeSection == MainSection.CHATS
-                                label.contains("Profile") -> activeSection == MainSection.PROFILE_FAMILY
-                                label.contains("Administration") -> activeSection == MainSection.ADMINISTRATION
-                                label.contains("Scammer") -> activeSection == MainSection.SCAMMER_SHIELD
-                                label.contains("Bounty") -> activeSection == MainSection.BOUNTY_SYSTEM
-                                else -> false
-                            }
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isActive) GoldAccent.copy(alpha = 0.15f) else Color.Transparent)
-                                    .clickable {
-                                        action()
-                                        scope.launch { drawerState.close() }
-                                    }
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    label,
-                                    color = if (isActive) GoldAccent else Color.White,
-                                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                if (isActive) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .background(GoldAccent, CircleShape)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text("Secure Cloud Core v3.5", color = MutedText, fontSize = 9.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
-                }
-            }
-        }
-    ) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Open Drawer", tint = Color.White)
-                        }
-                    },
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                when (activeSection) {
-                                    MainSection.DASHBOARD -> "🏠 Dashboard"
-                                    MainSection.MARKETPLACE -> "🛒 Marketplace"
-                                    MainSection.BUSINESS_NETWORK -> "🏢 Businesses"
-                                    MainSection.AI_ADVISOR -> "🤖 AI Advisor"
-                                    MainSection.PROFILE_FAMILY -> "👤 Profiles & Families"
-                                    MainSection.RCD_CENTER -> "❤️ Real Currency Deals"
-                                    MainSection.ADVERTISING -> "📢 Campaigns"
-                                    MainSection.INVENTORY -> "🎁 Inventory & Coins"
-                                    MainSection.ADMINISTRATION -> "⚙ Settings & Admin"
-                                    MainSection.CHATS -> "💬 Support Inbox"
-                                    MainSection.SCAMMER_SHIELD -> "🛡️ Scammer Shield"
-                                    MainSection.BOUNTY_SYSTEM -> "🎯 Bounty Board"
-                                },
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                fontSize = 16.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Add listing menu",
+                                tint = Color.White,
+                                modifier = Modifier.size(26.dp)
                             )
                         }
-                    },
-                    actions = {
+                    }
+
+                    // 💬 COMMUNITY TAB
+                    val isComm = activeTab == "community" && activeMoreMenuItem.isEmpty()
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                activeTab = "community"
+                                activeMoreMenuItem = ""
+                            }
+                            .padding(vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Email,
+                                contentDescription = "Community Alliance",
+                                tint = if (isComm) TechCyan else MutedText,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "Community",
+                                color = if (isComm) Color.White else MutedText,
+                                fontSize = 10.sp,
+                                fontWeight = if (isComm) FontWeight.Bold else FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            AnimatedVisibility(
+                                visible = isComm,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(16.dp)
+                                        .height(3.dp)
+                                        .clip(CircleShape)
+                                        .background(TechCyan)
+                                )
+                            }
+                        }
+                    }
+
+                    // 👤 PROFILE TAB
+                    val isProfile = activeTab == "profile" && activeMoreMenuItem.isEmpty()
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                activeTab = "profile"
+                                activeMoreMenuItem = ""
+                            }
+                            .padding(vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Profile Passport",
+                                tint = if (isProfile) TechCyan else MutedText,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "Profile",
+                                color = if (isProfile) Color.White else MutedText,
+                                fontSize = 10.sp,
+                                fontWeight = if (isProfile) FontWeight.Bold else FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            AnimatedVisibility(
+                                visible = isProfile,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(16.dp)
+                                        .height(3.dp)
+                                        .clip(CircleShape)
+                                        .background(TechCyan)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        containerColor = DeepSlateBg
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            // Content selection transition spec
+            AnimatedContent(
+                targetState = Triple(activeTab, activeMoreMenuItem, communitySubTab),
+                transitionSpec = {
+                    fadeIn() togetherWith fadeOut()
+                },
+                label = "NavigationTransition"
+            ) { (tab, moreMenuKey, communitySub) ->
+                if (moreMenuKey.isNotEmpty()) {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         Row(
                             modifier = Modifier
-                                .padding(end = 8.dp)
-                                .background(ElevatedSlate, RoundedCornerShape(16.dp))
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                                .fillMaxWidth()
+                                .background(CardSlateBg)
+                                .clickable { activeMoreMenuItem = "" }
+                                .padding(horizontal = 14.dp, vertical = 11.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Star, contentDescription = "Coins", tint = CoinGold, modifier = Modifier.size(16.dp))
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Return",
+                                tint = TechCyan,
+                                modifier = Modifier.size(15.dp)
+                            )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                "${userProfile?.coinBalance ?: 0} KC",
-                                color = CoinGold,
-                                fontSize = 13.sp,
+                                "Back to Command Deck",
+                                color = TechCyan,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = DeepSlateBg,
-                        titleContentColor = Color.White
-                    )
-                )
-            },
-            floatingActionButton = {
-                Row(
-                    modifier = Modifier.padding(10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Floating Robot AI Assistant Button
-                    FloatingActionButton(
-                        onClick = { showAiAssistantMenu = true },
-                        containerColor = GoldAccent,
-                        shape = CircleShape,
-                        modifier = Modifier.testTag("floating_ai_assistant_fab")
-                    ) {
-                        Text("🤖", fontSize = 22.sp)
-                    }
 
-                    if (activeSection == MainSection.MARKETPLACE) {
-                        FloatingActionButton(
-                            onClick = { showCreateListingDialog = true },
-                            containerColor = GreenVerify,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.testTag("create_listing_fab")
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "Add Item", tint = DeepSlateBg)
+                        Box(modifier = Modifier.weight(1f)) {
+                            when (moreMenuKey) {
+                                "RCD" -> RcdCenterView(viewModel, rcdDeals)
+                                "SCAMMER" -> ScammerShieldView(viewModel)
+                                "AI_ADVISOR" -> AiAdvisorView(viewModel)
+                                "STAFF_ADMIN" -> AdministrationView(viewModel, auditLogs, rcdDeals)
+                            }
                         }
                     }
-                }
-            },
-            containerColor = DeepSlateBg
-        ) { innerPadding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            ) {
-                // Symmetrical top search input for dashboard experience
-                val searchVal by viewModel.searchQuery.collectAsState()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = searchVal,
-                        onValueChange = { viewModel.searchQuery.value = it },
-                        placeholder = { Text("Search Everything...", color = MutedText, fontSize = 12.sp) },
-                        modifier = Modifier.weight(1f).height(46.dp),
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = GoldAccent, modifier = Modifier.size(18.dp)) },
-                        trailingIcon = {
-                            if (searchVal.isNotBlank()) {
-                                IconButton(onClick = { viewModel.searchQuery.value = "" }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color.Gray, modifier = Modifier.size(18.dp))
+                } else {
+                    when (tab) {
+                        "home" -> {
+                            SaaSDashboardView(
+                                viewModel = viewModel,
+                                onTabChange = { activeTab = it },
+                                onProfileSubTabChange = { profileSubTab = it },
+                                onCommunitySubTabChange = { communitySubTab = it },
+                                onMoreMenuChange = { activeMoreMenuItem = it }
+                            )
+                        }
+                        "market" -> {
+                            MarketplaceView(viewModel, listings)
+                        }
+                        "community" -> {
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                // Community sub-bar horizontal chips
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(CardSlateBg)
+                                        .horizontalScroll(rememberScrollState())
+                                        .padding(vertical = 10.dp, horizontal = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    val tabsList = listOf(
+                                        0 to "💬 Support Lobby",
+                                        1 to "👨‍👩‍👦 Alliance Family",
+                                        2 to "🎯 Active Bounties",
+                                        3 to "🏢 Business Network",
+                                        4 to "📢 Campaigns Desk"
+                                    )
+                                    tabsList.forEach { (index, title) ->
+                                        val selected = communitySub == index
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(if (selected) TechCyan.copy(alpha = 0.15f) else Color.Transparent)
+                                                .border(
+                                                    width = 0.5.dp,
+                                                    color = if (selected) TechCyan else ElevatedSlate,
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                                .clickable { communitySubTab = index }
+                                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                            Text(
+                                                text = title,
+                                                color = if (selected) TechCyan else SoftGrayText,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Box(modifier = Modifier.weight(1f)) {
+                                    when (communitySub) {
+                                        0 -> ChatInboxView(viewModel)
+                                        1 -> ProfilesFamilyView(viewModel, userProfile, families, myVouches)
+                                        2 -> BountyBoardView(viewModel)
+                                        3 -> BusinessNetworkView(viewModel, businesses)
+                                        4 -> AdvertisingView(viewModel, ads)
+                                    }
                                 }
                             }
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = CardSlateBg,
-                            unfocusedContainerColor = CardSlateBg,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = GoldAccent,
-                            unfocusedBorderColor = ElevatedSlate
-                        ),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
+                        }
+                        "profile" -> {
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                // Profile sub-bar horizontal chips
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(CardSlateBg)
+                                        .horizontalScroll(rememberScrollState())
+                                        .padding(vertical = 10.dp, horizontal = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    val tabsList = listOf(
+                                        0 to "👤 Reputation Passport",
+                                        1 to "📦 Inventory Storage",
+                                        2 to "💼 Savings Deposits",
+                                        3 to "⚙️ Guard & Utilities"
+                                    )
+                                    tabsList.forEach { (index, title) ->
+                                        val selected = profileSubTab == index
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(if (selected) TechCyan.copy(alpha = 0.15f) else Color.Transparent)
+                                                .border(
+                                                    width = 0.5.dp,
+                                                    color = if (selected) TechCyan else ElevatedSlate,
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                                .clickable { profileSubTab = index }
+                                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                            Text(
+                                                text = title,
+                                                color = if (selected) TechCyan else SoftGrayText,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
 
-                // Interactive horizontal categories shortcut row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(CardSlateBg)
-                        .horizontalScroll(rememberScrollState())
-                        .padding(vertical = 8.dp, horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    SubSectionChip("Main Dashboard", activeSection == MainSection.DASHBOARD) { viewModel.selectSection(MainSection.DASHBOARD) }
-                    SubSectionChip("Market Board", activeSection == MainSection.MARKETPLACE) { viewModel.selectSection(MainSection.MARKETPLACE) }
-                    SubSectionChip("💬 Support Inbox", activeSection == MainSection.CHATS) { viewModel.selectSection(MainSection.CHATS) }
-                    SubSectionChip("🛡️ Scammer Shield", activeSection == MainSection.SCAMMER_SHIELD) { viewModel.selectSection(MainSection.SCAMMER_SHIELD) }
-                    SubSectionChip("🎯 Bounty Board", activeSection == MainSection.BOUNTY_SYSTEM) { viewModel.selectSection(MainSection.BOUNTY_SYSTEM) }
-                    SubSectionChip("Businesses Net", activeSection == MainSection.BUSINESS_NETWORK) { viewModel.selectSection(MainSection.BUSINESS_NETWORK) }
-                    SubSectionChip("AI Companion", activeSection == MainSection.AI_ADVISOR) { viewModel.selectSection(MainSection.AI_ADVISOR) }
-                    SubSectionChip("Profiles Network", activeSection == MainSection.PROFILE_FAMILY) { viewModel.selectSection(MainSection.PROFILE_FAMILY) }
-                }
+                                Box(modifier = Modifier.weight(1f)) {
+                                    when (profileSubTab) {
+                                        0 -> {
+                                            ProfilesFamilyView(viewModel, userProfile, families, myVouches)
+                                        }
+                                        1, 2 -> {
+                                            InventoryView(viewModel, myInventory)
+                                        }
+                                        3 -> {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .verticalScroll(rememberScrollState())
+                                                    .padding(16.dp)
+                                            ) {
+                                                Text(
+                                                    "🛠️ Patrol Guard & Escrow Desk",
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp,
+                                                    modifier = Modifier.padding(bottom = 12.dp)
+                                                )
 
-                AnimatedContent(
-                    targetState = activeSection,
-                    transitionSpec = {
-                        fadeIn() togetherWith fadeOut()
-                    },
-                    label = "ScreenTransition"
-                ) { section ->
-                    when (section) {
-                        MainSection.DASHBOARD -> SaaSDashboardView(viewModel = viewModel)
-                        MainSection.MARKETPLACE -> MarketplaceView(viewModel, listings)
-                        MainSection.BUSINESS_NETWORK -> BusinessNetworkView(viewModel, businesses)
-                        MainSection.AI_ADVISOR -> AiAdvisorView(viewModel)
-                        MainSection.PROFILE_FAMILY -> ProfilesFamilyView(viewModel, userProfile, families, myVouches)
-                        MainSection.RCD_CENTER -> RcdCenterView(viewModel, rcdDeals)
-                        MainSection.ADVERTISING -> AdvertisingView(viewModel, ads)
-                        MainSection.INVENTORY -> InventoryView(viewModel, myInventory)
-                        MainSection.ADMINISTRATION -> AdministrationView(viewModel, auditLogs, rcdDeals)
-                        MainSection.CHATS -> ChatInboxView(viewModel)
-                        MainSection.SCAMMER_SHIELD -> ScammerShieldView(viewModel)
-                        MainSection.BOUNTY_SYSTEM -> BountyBoardView(viewModel)
+                                                val secondaryTools = listOf(
+                                                    Triple("🛡️ Scammer Shield Registry", "Submit & review verified fraud complaints", "SCAMMER"),
+                                                    Triple("🤝 Active Escrow [RCD]", "Verify trade receipts, proof of completion & deals", "RCD"),
+                                                    Triple("⚙️ Executive Administration Panel", "Director logs, gold token increments & certifications", "STAFF_ADMIN")
+                                                )
+
+                                                secondaryTools.forEach { (title, subtitle, key) ->
+                                                    Card(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(vertical = 6.dp)
+                                                            .clickable { activeMoreMenuItem = key },
+                                                        colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.7f)),
+                                                        shape = RoundedCornerShape(12.dp),
+                                                        border = BorderStroke(0.5.dp, ElevatedSlate)
+                                                    ) {
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .padding(14.dp),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Column(modifier = Modifier.weight(1f)) {
+                                                                Text(
+                                                                    text = title,
+                                                                    color = Color.White,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    fontSize = 13.sp
+                                                                )
+                                                                Spacer(modifier = Modifier.height(2.dp))
+                                                                Text(
+                                                                    text = subtitle,
+                                                                    color = MutedText,
+                                                                    fontSize = 10.sp
+                                                                )
+                                                            }
+                                                            Icon(
+                                                                imageVector = Icons.Default.ArrowForward,
+                                                                contentDescription = "Navigate",
+                                                                tint = TechCyan,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+
+                                                Spacer(modifier = Modifier.height(24.dp))
+                                                Button(
+                                                    onClick = { viewModel.logoutGoogle() },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = RedUrgent.copy(alpha = 0.15f)),
+                                                    border = BorderStroke(1.dp, RedUrgent),
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = RoundedCornerShape(12.dp)
+                                                ) {
+                                                    Text(
+                                                        "Sign Out Secure Session",
+                                                        color = RedUrgent,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 12.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -507,8 +685,86 @@ fun MainAppScreen(viewModel: MarketViewModel) {
 
     // Creating listings dialog form
     if (showCreateListingDialog) {
-        CreateListingDialog(viewModel = viewModel) {
+        CreateListingDialog(viewModel = viewModel, initialCategory = initialCreateCategory) {
             showCreateListingDialog = false
+        }
+    }
+
+    if (showCreationChoiceSheet) {
+        Dialog(onDismissRequest = { showCreationChoiceSheet = false }) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = CardSlateBg,
+                tonalElevation = 6.dp,
+                border = BorderStroke(1.dp, ElevatedSlate),
+                modifier = Modifier.fillMaxWidth().padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Create New Listing",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Text(
+                        text = "Choose a ledger category to advertise",
+                        color = MutedText,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    val choices = listOf(
+                        Triple("Vehicle", "🚗 Vehicles Ledger", "Sell high-end sports cars or trucks"),
+                        Triple("Property", "🏠 Properties Desk", "List virtual villas or apartments"),
+                        Triple("Business", "🏢 Business Shares", "Trade corporate assets & networks"),
+                        Triple("Skin", "💎 Special Skins", "List elite custom clothing & visuals"),
+                        Triple("Item", "📦 Rare Goods", "Advertise accessories and rare items")
+                    )
+
+                    choices.forEach { (catId, title, sub) ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 5.dp)
+                                .clickable {
+                                    initialCreateCategory = catId
+                                    showCreateListingDialog = true
+                                    showCreationChoiceSheet = false
+                                },
+                            colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.6f)),
+                            border = BorderStroke(0.5.dp, ElevatedSlate),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = title,
+                                    color = TechCyan,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = sub,
+                                    color = SoftGrayText,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    TextButton(
+                        onClick = { showCreationChoiceSheet = false }
+                    ) {
+                        Text("Cancel", color = SoftGrayText, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
     }
 }
@@ -535,89 +791,190 @@ fun LoginScreen(viewModel: MarketViewModel) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(DeepSlateBg, CardSlateBg)
+            .background(DeepSlateBg)
+            .drawBehind {
+                // Draw sleek cyber high-tech space grid
+                val gridSpacing = 44.dp.toPx()
+                // Vertical grid lines
+                var x = 0f
+                while (x < size.width) {
+                    drawLine(
+                        color = Color(0x065A88FF),
+                        start = androidx.compose.ui.geometry.Offset(x, 0f),
+                        end = androidx.compose.ui.geometry.Offset(x, size.height),
+                        strokeWidth = 1f
+                    )
+                    x += gridSpacing
+                }
+                // Horizontal grid lines
+                var y = 0f
+                while (y < size.height) {
+                    drawLine(
+                        color = Color(0x065A88FF),
+                        start = androidx.compose.ui.geometry.Offset(0f, y),
+                        end = androidx.compose.ui.geometry.Offset(size.width, y),
+                        strokeWidth = 1f
+                    )
+                    y += gridSpacing
+                }
+
+                // Cyber neon auroras
+                drawCircle(
+                    color = TechCyan.copy(alpha = 0.08f),
+                    radius = size.width / 2f,
+                    center = androidx.compose.ui.geometry.Offset(0f, size.height * 0.1f)
                 )
-            )
+                drawCircle(
+                    color = CyberPurple.copy(alpha = 0.06f),
+                    radius = size.width / 1.8f,
+                    center = androidx.compose.ui.geometry.Offset(size.width, size.height * 0.8f)
+                )
+            }
             .statusBarsPadding()
             .navigationBarsPadding(),
         contentAlignment = Alignment.Center
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth(0.9f)
+                .fillMaxWidth(0.92f)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Elegant Emblem Box
-            Box(
-                modifier = Modifier
-                    .size(96.dp)
-                    .background(GoldAccent.copy(alpha = 0.15f), RoundedCornerShape(24.dp))
-                    .border(2.dp, GoldAccent, RoundedCornerShape(24.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("K", fontWeight = FontWeight.Black, color = GoldAccent, fontSize = 42.sp)
-            }
-
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Application name Display
-            Text(
-                "KAT_MARKET",
-                fontWeight = FontWeight.Black,
-                letterSpacing = 2.sp,
-                color = Color.White,
-                fontSize = 32.sp
-            )
+            // Premium Cyber Logo Emblem
+            Box(
+                modifier = Modifier
+                    .size(90.dp)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                GoldAccent.copy(alpha = 0.15f),
+                                TechCyan.copy(alpha = 0.05f)
+                            )
+                        ),
+                        RoundedCornerShape(22.dp)
+                    )
+                    .border(
+                        BorderStroke(
+                            2.dp,
+                            Brush.linearGradient(
+                                colors = listOf(GoldAccent, TechCyan, CyberPurple)
+                            )
+                        ),
+                        RoundedCornerShape(22.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "K",
+                    style = TextStyle(
+                        brush = Brush.linearGradient(
+                            colors = listOf(Color.White, GoldAccent, TechCyan)
+                        ),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 42.sp
+                    )
+                )
+            }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Subtitle
-            Text(
-                "Secure RP Trading & Escrow Core",
-                color = SoftGrayText,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
+            // Branded Header with distinct styles
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "KAT",
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 3.sp,
+                    color = Color.White,
+                    fontSize = 32.sp
+                )
+                Text(
+                    "_MARKET",
+                    fontWeight = FontWeight.Light,
+                    letterSpacing = 2.sp,
+                    color = GoldAccent,
+                    fontSize = 32.sp
+                )
+            }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
-            // Highlight features
+            // Pulse Active Live Status
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .background(Color(0x1F10B981), RoundedCornerShape(12.dp))
+                    .border(0.5.dp, GreenVerify.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(GreenVerify, CircleShape)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    "Live Secure RP Escrow Hub".uppercase(),
+                    color = GreenVerify,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // Glassmorphic Feature Overview Information Panel
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = CardSlateBg),
+                colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.85f)),
                 border = BorderStroke(1.dp, ElevatedSlate),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    LoginFeatureRow(icon = "🛡️", title = "Escrow Safeguards", description = "Vetted real currency deals with 24/7 staff support.")
-                    LoginFeatureRow(icon = "🔒", title = "Google OAuth 2.0", description = "Secure and fast authentication with cloud-vault.")
-                    LoginFeatureRow(icon = "📈", title = "Real-Time Pricing", description = "Track M5s, mansions, and retail value indexes dynamically.")
+                    LoginFeatureRow(
+                        icon = "🛡️",
+                        title = "Vetted Escrow Vault",
+                        description = "Transaction compliance secured automatically by real-time validation layers."
+                    )
+                    LoginFeatureRow(
+                        icon = "🔑",
+                        title = "Google Authentication",
+                        description = "Connect swiftly to secure profile ledgers via Cloud Sign-In vaults."
+                    )
+                    LoginFeatureRow(
+                        icon = "📈",
+                        title = "Live Asset Indexes",
+                        description = "Review dynamic trading price curves of G63s, suburban properties, and retail empires."
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Main Google Sign-In Button
+            // Sign In Action Area
             if (isAuthenticating) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    CircularProgressIndicator(color = GoldAccent, modifier = Modifier.size(36.dp))
-                    Spacer(modifier = Modifier.height(12.dp))
+                    CircularProgressIndicator(
+                        color = TechCyan,
+                        strokeWidth = 3.dp,
+                        modifier = Modifier.size(40.dp)
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
                     Text(
-                        "Connecting secure cloud sessions...",
-                        color = SoftGrayText,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
+                        "Synchronizing secure gateway credentials...",
+                        color = TechCyan,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.5.sp
                     )
                 }
             } else {
@@ -626,40 +983,45 @@ fun LoginScreen(viewModel: MarketViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp)
+                        .border(
+                            width = 1.dp,
+                            brush = Brush.linearGradient(colors = listOf(GoldAccent, TechCyan)),
+                            shape = RoundedCornerShape(12.dp)
+                        )
                         .testTag("google_login_button"),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        // Custom drawing of Google character logo style
-                        Text("G", fontWeight = FontWeight.Bold, color = Color(0xFF4285F4), fontSize = 20.sp)
-                        Text("o", fontWeight = FontWeight.Bold, color = Color(0xFFEA4335), fontSize = 20.sp)
-                        Text("o", fontWeight = FontWeight.Bold, color = Color(0xFFFBBC05), fontSize = 20.sp)
-                        Text("g", fontWeight = FontWeight.Bold, color = Color(0xFF4285F4), fontSize = 20.sp)
-                        Text("l", fontWeight = FontWeight.Bold, color = Color(0xFF34A853), fontSize = 20.sp)
-                        Text("e", fontWeight = FontWeight.Bold, color = Color(0xFFEA4335), fontSize = 20.sp)
+                        Text("G", fontWeight = FontWeight.Bold, color = Color(0xFF4285F4), fontSize = 18.sp)
+                        Text("o", fontWeight = FontWeight.Bold, color = Color(0xFFEA4335), fontSize = 18.sp)
+                        Text("o", fontWeight = FontWeight.Bold, color = Color(0xFFFBBC05), fontSize = 18.sp)
+                        Text("g", fontWeight = FontWeight.Bold, color = Color(0xFF4285F4), fontSize = 18.sp)
+                        Text("l", fontWeight = FontWeight.Bold, color = Color(0xFF34A853), fontSize = 18.sp)
+                        Text("e", fontWeight = FontWeight.Bold, color = Color(0xFFEA4335), fontSize = 18.sp)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            "Sign In with Google",
-                            color = Color(0xFF1E293B),
+                            "Enter with Google",
+                            color = Color.White,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
+                            fontSize = 14.sp,
+                            letterSpacing = 0.5.sp
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
             Text(
-                "By signing in, you agree to official Grand RP Fair Trading guidelines.",
+                "Authorized Grand RP sandbox trading environment.",
                 color = MutedText,
                 fontSize = 10.sp,
                 textAlign = TextAlign.Center
             )
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
@@ -671,32 +1033,30 @@ fun LoginScreen(viewModel: MarketViewModel) {
                     .fillMaxWidth()
                     .padding(16.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = CardSlateBg),
+                colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.95f)),
                 border = BorderStroke(1.dp, ElevatedSlate)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Google logo header inside chooser
                     Row(
                         modifier = Modifier.padding(bottom = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Text("G", fontWeight = FontWeight.Black, color = Color(0xFF4285F4), fontSize = 20.sp)
-                        Text("o", fontWeight = FontWeight.Black, color = Color(0xFFEA4335), fontSize = 20.sp)
-                        Text("o", fontWeight = FontWeight.Black, color = Color(0xFFFBBC05), fontSize = 20.sp)
-                        Text("g", fontWeight = FontWeight.Black, color = Color(0xFF4285F4), fontSize = 20.sp)
-                        Text("l", fontWeight = FontWeight.Black, color = Color(0xFF34A853), fontSize = 20.sp)
-                        Text("e", fontWeight = FontWeight.Black, color = Color(0xFFEA4335), fontSize = 20.sp)
+                        Text("G", fontWeight = FontWeight.Bold, color = Color(0xFF4285F4), fontSize = 18.sp)
+                        Text("o", fontWeight = FontWeight.Bold, color = Color(0xFFEA4335), fontSize = 18.sp)
+                        Text("o", fontWeight = FontWeight.Bold, color = Color(0xFFFBBC05), fontSize = 18.sp)
+                        Text("g", fontWeight = FontWeight.Bold, color = Color(0xFF4285F4), fontSize = 18.sp)
+                        Text("l", fontWeight = FontWeight.Bold, color = Color(0xFF34A853), fontSize = 18.sp)
+                        Text("e", fontWeight = FontWeight.Bold, color = Color(0xFFEA4335), fontSize = 18.sp)
                     }
-                    Text("Choose an account", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
-                    Text("to continue to KAT_MARKET", color = SoftGrayText, fontSize = 11.sp)
+                    Text("Select Trading Account", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+                    Text("Connect identity sequence securely", color = MutedText, fontSize = 11.sp)
                     
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                    // Account options lists
                     val googleAccounts = listOf(
                         Triple("nika_boss@gmail.com", "NIKA_BOSS_RP", "Elite Trader"),
                         Triple("adityaghatule30@gmail.com", "Aditya_Grand", "Marketplace Legend"),
@@ -704,7 +1064,7 @@ fun LoginScreen(viewModel: MarketViewModel) {
                     )
 
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         googleAccounts.forEach { (email, username, subtitle) ->
@@ -726,20 +1086,19 @@ fun LoginScreen(viewModel: MarketViewModel) {
                                         displayNameInput = username
                                         showDisplayNamePrompt = true
                                     }
-                                    .padding(10.dp),
+                                    .padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Avatar Circle
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
                                         .clip(CircleShape)
-                                        .background(GoldAccent),
+                                        .background(Brush.linearGradient(listOf(GoldAccent, TechCyan))),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         username.take(1).uppercase(),
-                                        color = DeepSlateBg,
+                                        color = Color.White,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 14.sp
                                     )
@@ -747,34 +1106,33 @@ fun LoginScreen(viewModel: MarketViewModel) {
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(username, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                    Text(email, color = SoftGrayText, fontSize = 11.sp)
+                                    Text(email, color = MutedText, fontSize = 11.sp)
                                 }
                             }
                         }
 
-                        // Add another custom account option
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(10.dp))
-                                .border(1.dp, MutedText, RoundedCornerShape(10.dp))
+                                .border(1.dp, ElevatedSlate, RoundedCornerShape(10.dp))
                                 .clickable {
                                     showAccountSelector = false
                                     showCustomInput = true
                                 }
-                                .padding(10.dp),
+                                .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Add account", tint = GoldAccent, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Add, contentDescription = "Add account", tint = TechCyan, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Use another Google account", color = GoldAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Use Dynamic Account", color = TechCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                     TextButton(onClick = { showAccountSelector = false }) {
-                        Text("Cancel", color = Color.Gray)
+                        Text("Dismiss", color = Color.Gray, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -793,11 +1151,11 @@ fun LoginScreen(viewModel: MarketViewModel) {
                 border = BorderStroke(1.dp, ElevatedSlate)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Add dynamic account", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Register Dynamic Account", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     OutlinedTextField(
                         value = customNameInput,
@@ -806,34 +1164,38 @@ fun LoginScreen(viewModel: MarketViewModel) {
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = GoldAccent,
-                            unfocusedBorderColor = ElevatedSlate
+                            focusedBorderColor = TechCyan,
+                            unfocusedBorderColor = ElevatedSlate,
+                            focusedLabelColor = TechCyan,
+                            unfocusedLabelColor = MutedText
                         ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     OutlinedTextField(
                         value = customEmailInput,
                         onValueChange = { customEmailInput = it },
-                        label = { Text("Google Email", color = MutedText) },
+                        label = { Text("Google Account Email", color = MutedText) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = GoldAccent,
-                            unfocusedBorderColor = ElevatedSlate
+                            focusedBorderColor = TechCyan,
+                            unfocusedBorderColor = ElevatedSlate,
+                            focusedLabelColor = TechCyan,
+                            unfocusedLabelColor = MutedText
                         ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         TextButton(
                             onClick = { showCustomInput = false },
@@ -854,9 +1216,9 @@ fun LoginScreen(viewModel: MarketViewModel) {
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1.2f)
                         ) {
-                            Text("Next", color = DeepSlateBg, fontWeight = FontWeight.Bold)
+                            Text("Continue", color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1000,7 +1362,7 @@ fun LoginScreen(viewModel: MarketViewModel) {
                                 .testTag("display_name_confirm_button"),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("Secure Login", color = DeepSlateBg, fontWeight = FontWeight.ExtraBold)
+                            Text("Secure Login", color = Color.White, fontWeight = FontWeight.ExtraBold)
                         }
                     }
                 }
@@ -1015,32 +1377,36 @@ fun LoginFeatureRow(icon: String, title: String, description: String) {
         Box(
             modifier = Modifier
                 .size(36.dp)
-                .background(ElevatedSlate, RoundedCornerShape(8.dp)),
+                .background(ElevatedSlate, RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text(icon, fontSize = 18.sp)
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         Column {
             Text(title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Text(description, color = SoftGrayText, fontSize = 11.sp)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(description, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
         }
     }
 }
 
+
 @Composable
-fun SaaSDashboardView(viewModel: MarketViewModel) {
+fun SaaSDashboardView(
+    viewModel: MarketViewModel,
+    onTabChange: (String) -> Unit = {},
+    onProfileSubTabChange: (Int) -> Unit = {},
+    onCommunitySubTabChange: (Int) -> Unit = {},
+    onMoreMenuChange: (String) -> Unit = {}
+) {
     val listings by viewModel.filteredListings.collectAsState(initial = emptyList())
     val userProfile by viewModel.userProfile.collectAsState()
-    var showNetWorthDialog by remember { mutableStateOf(false) }
+    val currentVouches by viewModel.myVouches.collectAsState(initial = emptyList())
+    val allTransactions by viewModel.marketTransactions.collectAsState(initial = emptyList())
 
-    if (showNetWorthDialog) {
-        RequestNetWorthVerificationDialog(
-            viewModel = viewModel,
-            userProfile = userProfile,
-            onDismiss = { showNetWorthDialog = false }
-        )
-    }
+    // Local Claim State for interactive daily rewards
+    var hasClaimedToday by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -1053,9 +1419,283 @@ fun SaaSDashboardView(viewModel: MarketViewModel) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
-            colors = CardDefaults.cardColors(containerColor = CardSlateBg),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, ElevatedSlate)
+            colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.85f)),
+            border = BorderStroke(1.dp, ElevatedSlate),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "👋 Welcome back,",
+                            color = SoftGrayText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            userProfile?.username ?: "Aditya",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .background(GoldAccent.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    userProfile?.title?.uppercase() ?: "ELITE TRADER",
+                                    color = GoldAccent,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .background(GreenVerify, CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Online Sync", color = SoftGrayText, fontSize = 9.sp)
+                        }
+                    }
+
+                    // Profile Icon with custom styling
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Brush.linearGradient(listOf(GoldAccent, TechCyan)))
+                            .padding(2.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(CardSlateBg, RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                (userProfile?.username ?: "A").take(1).uppercase(),
+                                color = TechCyan,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 22.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Community Alert / Announcement Bar
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(containerColor = TechCyan.copy(alpha = 0.08f)),
+            border = BorderStroke(0.5.dp, TechCyan.copy(alpha = 0.25f)),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("⚡", fontSize = 16.sp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Marketplace Safety Notice",
+                        color = TechCyan,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Always trade inside the Escrow System to prevent fraud. Report suspicious dealers.",
+                        color = SoftGrayText,
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp
+                    )
+                }
+            }
+        }
+
+        // Interactive Financial Hub Header
+        Text(
+            "Account Balance & Wallets",
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // Coin & Wallet Summary Cards Grid
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // KAT Coins Card (With dynamic animation or highlight)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.85f)),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, GoldAccent.copy(alpha = 0.4f)),
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable {
+                        onTabChange("profile")
+                        onProfileSubTabChange(1) // Inventory / Supporter store
+                    }
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🪙 KAT Coins", color = SoftGrayText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("🛒 Buy", color = GoldAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        "${userProfile?.coinBalance ?: 0} KC",
+                        color = CoinGold,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text("Corporate Ledger Currency", color = MutedText, fontSize = 8.sp)
+                }
+            }
+
+            // Pocket Cash Wallet Card
+            Card(
+                colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.85f)),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, ElevatedSlate),
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable {
+                        onTabChange("profile")
+                        onProfileSubTabChange(2) // Savings FD
+                    }
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("💳 Pocket Cash", color = SoftGrayText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("💼 Bank", color = TechCyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        formatCurrency(userProfile?.walletBalance ?: 0L),
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text("Liquid Cash Reserves", color = MutedText, fontSize = 8.sp)
+                }
+            }
+        }
+
+        // Daily booster / rewards section
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.9f)),
+            border = BorderStroke(1.dp, Brush.horizontalGradient(listOf(ElevatedSlate, GoldAccent.copy(alpha = 0.3f)))),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("🎁", fontSize = 16.sp)
+                        Column {
+                            Text("Daily Loyalty Allowance", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Claim free resources every 24 hours", color = MutedText, fontSize = 9.sp)
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                if (hasClaimedToday) SoftGrayText.copy(alpha = 0.15f) else GoldAccent.copy(alpha = 0.15f),
+                                RoundedCornerShape(6.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = if (hasClaimedToday) "CLAIMED" else "READY",
+                            color = if (hasClaimedToday) SoftGrayText else GoldAccent,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Button(
+                    onClick = {
+                        if (!hasClaimedToday) {
+                            viewModel.awardAdminCoins(150)
+                            // We can also post a live notification using repository which updates local cache!
+                            hasClaimedToday = true
+                            viewModel.alertMessage.value = "🎉 Daily Loyalty Allowance claimed! Added 150 KC Gold Coins successfully to your ledger balance."
+                        }
+                    },
+                    enabled = !hasClaimedToday,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = GoldAccent,
+                        contentColor = DeepSlateBg,
+                        disabledContainerColor = CardSlateBg.copy(alpha = 0.5f),
+                        disabledContentColor = SoftGrayText
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 10.dp)
+                ) {
+                    Text(
+                        text = if (hasClaimedToday) "✅ Already Claimed Today" else "🎁 Claim 150 KC Loyalty Coins",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        }
+
+        // Reputation Passport Card (Futuristic Security Passport/Badge Layout)
+        Text(
+            "Security & Reputation Index",
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.9f)),
+            border = BorderStroke(1.dp, Brush.horizontalGradient(listOf(ElevatedSlate, TechCyan.copy(alpha = 0.4f)))),
+            shape = RoundedCornerShape(14.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
@@ -1064,322 +1704,112 @@ fun SaaSDashboardView(viewModel: MarketViewModel) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
+                        Text("🛡️ TRUST PROFILE PASSPORT", color = TechCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                         Text(
-                            "👋 Good Morning, ${userProfile?.username ?: "Aditya"}",
+                            text = "Excellent Trust Standing",
                             color = Color.White,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "Welcome back to KAT Market! Ready to trade?",
-                            color = SoftGrayText,
-                            fontSize = 12.sp
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black
                         )
                     }
-                    // Profile Image placeholder
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(GoldAccent),
-                        contentAlignment = Alignment.Center
+                            .background(GreenVerify.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                            .border(0.5.dp, GreenVerify, RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Text(
-                            (userProfile?.username ?: "A").take(1).uppercase(),
-                            color = DeepSlateBg,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
+                        Text("S+ GRADE", color = GreenVerify, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-            }
-        }
 
-        // Certified Wealth Portfolio Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (userProfile?.isNetWorthVerified == true) Color(0xFF0F172A) else CardSlateBg
-            ),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.5.dp, if (userProfile?.isNetWorthVerified == true) GreenVerify else ElevatedSlate)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Custom trust bar indicator
+                val repValue = userProfile?.reputation ?: 95
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "💰 CERTIFIED WEALTH PORTFOLIO",
-                        color = Color.White,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 11.sp
-                    )
-                    
-                    // Verification badge status
-                    if (userProfile?.isNetWorthVerified == true) {
-                        Surface(
-                            color = GreenVerify.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(6.dp),
-                            border = BorderStroke(0.5.dp, GreenVerify)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("🛡", fontSize = 10.sp)
-                                Text("VERIFIED", color = GreenVerify, fontWeight = FontWeight.Bold, fontSize = 9.sp)
-                            }
-                        }
-                    } else {
-                        Surface(
-                            color = RedUrgent.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(6.dp),
-                            border = BorderStroke(0.5.dp, RedUrgent)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("⚠", fontSize = 10.sp)
-                                Text("UNVERIFIED", color = RedUrgent, fontWeight = FontWeight.Bold, fontSize = 9.sp)
-                            }
-                        }
-                    }
+                    Text("Trust Score Progress", color = SoftGrayText, fontSize = 10.sp)
+                    Text("$repValue / 100", color = GreenVerify, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Net Worth amount display
-                val displayedWealth = if (userProfile?.isNetWorthVerified == true) {
-                    userProfile?.verifiedNetWorth ?: 0L
-                } else {
-                    (userProfile?.bankBalance ?: 0L) + (userProfile?.walletBalance ?: 0L)
-                }
-
-                Text(
-                    formatCurrency(displayedWealth),
-                    color = if (userProfile?.isNetWorthVerified == true) CoinGold else Color.White,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Black
-                )
-                
-                if (userProfile?.isNetWorthVerified == true) {
-                    Text(
-                        "Verified By: ${userProfile?.netWorthVerifiedBy.orEmpty().ifBlank { "Staff_Alisa" }} • Last Updated: ${userProfile?.netWorthLastUpdated.orEmpty().ifBlank { "17 June 2026" }}",
-                        color = SoftGrayText,
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                } else {
-                    if (userProfile?.netWorthRejectionReason?.isNotBlank() == true) {
-                        Text(
-                            "Rejection Logs: ${userProfile?.netWorthRejectionReason}",
-                            color = Color(0xFFFCA5A5),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    } else {
-                        Text(
-                            "Net worth wealth estimation unverified by Grand staff audit reviews.",
-                            color = SoftGrayText,
-                            fontSize = 11.sp,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                }
-
-                // Auto Recalculation Alerts
-                if (userProfile?.isNetWorthVerified == true && userProfile?.netWorthNeedsReverification == true) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Surface(
-                        color = Color(0xFF78350F),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("⚠", fontSize = 14.sp)
-                            Text(
-                                "Net Worth Requires Reverification (Asset sold, property bought or new listing added)",
-                                color = Color(0xFFFDE68A),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                Divider(
-                    color = ElevatedSlate,
-                    thickness = 1.dp,
-                    modifier = Modifier.padding(vertical = 12.dp)
+                Spacer(modifier = Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = { (repValue.toFloat() / 100f).coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
+                    color = GreenVerify,
+                    trackColor = ElevatedSlate
                 )
 
-                // Breakdown section
-                Text(
-                    "WEALTH PORTFOLIO BREAKDOWN",
-                    color = SoftGrayText,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
+                Spacer(modifier = Modifier.height(14.dp))
 
-                val bBank = if (userProfile?.isNetWorthVerified == true) userProfile?.verifiedBankCodeBalance ?: 0L else userProfile?.bankBalance ?: 0L
-                val bVehicles = if (userProfile?.isNetWorthVerified == true) userProfile?.verifiedVehiclesWorth ?: 0L else 0L
-                val bProperties = if (userProfile?.isNetWorthVerified == true) userProfile?.verifiedPropertiesWorth ?: 0L else 0L
-                val bBusinesses = if (userProfile?.isNetWorthVerified == true) userProfile?.verifiedBusinessesWorth ?: 0L else 0L
-                
+                // Trust Checklist
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("🏦 Verified Bank Vault:", color = SoftGrayText, fontSize = 11.sp)
-                        Text("🚗 Verified Vehicles:", color = SoftGrayText, fontSize = 11.sp)
-                        Text("🏠 Verified Properties:", color = SoftGrayText, fontSize = 11.sp)
-                        Text("🏢 Verified Businesses:", color = SoftGrayText, fontSize = 11.sp)
-                        Text("📈 Total Portfolio Value:", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("✅", fontSize = 10.sp)
+                            Text("Scammer Shield Clear", color = SoftGrayText, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("✅", fontSize = 10.sp)
+                            Text("Completed ${userProfile?.completedDeals ?: 45} Deals", color = SoftGrayText, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        }
                     }
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(formatCurrency(bBank), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text(formatCurrency(bVehicles), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text(formatCurrency(bProperties), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text(formatCurrency(bBusinesses), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text(formatCurrency(displayedWealth), color = CoinGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("✅", fontSize = 10.sp)
+                            Text("${userProfile?.vouchesCount ?: currentVouches.size.coerceAtLeast(18)} Endorsements", color = SoftGrayText, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("✅", fontSize = 10.sp)
+                            Text("Verified Net Worth", color = SoftGrayText, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Request verification button
-                Button(
-                    onClick = { showNetWorthDialog = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("request_net_worth_verification_button"),
-                    colors = ButtonDefaults.buttonColors(containerColor = GoldAccent)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        if (userProfile?.isNetWorthVerified == true) "Re-Verify Portfolio Evidence" else "Request Net Worth Verification",
-                        color = DeepSlateBg,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-        }
-
-        // Quick Stats Cards - Net Worth, Coins, Active Listings, Reputation
-        Text(
-            "Portfolio Quick Stats",
-            color = Color.White,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Cash Wallet Card
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = CardSlateBg),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, ElevatedSlate),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("💳 Pocket Cash", color = SoftGrayText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            formatCurrency(userProfile?.walletBalance ?: 0L),
-                            color = Color.White,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    OutlinedButton(
+                        onClick = {
+                            onTabChange("profile")
+                            onProfileSubTabChange(0) // Passport & Vouches sub-tab
+                        },
+                        border = BorderStroke(0.5.dp, ElevatedSlate),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        Text("View My Vouches", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
-                }
 
-                // Active Listings Card
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = CardSlateBg),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, ElevatedSlate),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("📦 Active Listings", color = SoftGrayText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "${listings.size} Listings",
-                            color = Color.White,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // KAT Coins Card
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = CardSlateBg),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, ElevatedSlate),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("🪙 KAT Coins", color = SoftGrayText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "${userProfile?.coinBalance ?: 0} KC",
-                            color = CoinGold,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                // Reputation Card
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = CardSlateBg),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, ElevatedSlate),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("🏆 Reputation", color = SoftGrayText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "95/100 (Excellent)",
-                            color = GreenVerify,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    Button(
+                        onClick = {
+                            onMoreMenuChange("SCAMMER")
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = TechCyan, contentColor = DeepSlateBg),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        Text("🛡️ Shield Audit", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
 
-        // Featured Listings Carousel/List
+        // Horizontal Carousel for Featured Marketplace Listings ("Starred VIP Showcase")
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1388,7 +1818,7 @@ fun SaaSDashboardView(viewModel: MarketViewModel) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "Starred VIP Showcase",
+                "Starred VIP Showcase ⭐",
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
@@ -1397,25 +1827,43 @@ fun SaaSDashboardView(viewModel: MarketViewModel) {
                 "See All",
                 color = GoldAccent,
                 fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable {
                     viewModel.showOnlyFeatured.value = true
-                    viewModel.selectSection(MainSection.MARKETPLACE)
+                    viewModel.selectedCategoryFilter.value = "ALL"
+                    onTabChange("market")
                 }
             )
         }
 
         val featuredItems = listings.filter { it.isFeatured }
         if (featuredItems.isEmpty()) {
-            val fallbackItems = listings.take(3)
+            val fallbackItems = listings.take(5)
             if (fallbackItems.isEmpty()) {
-                Text("No available listings to show.", color = MutedText, fontSize = 12.sp)
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.6f)),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(0.5.dp, ElevatedSlate)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("No active showcase products available.", color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
             } else {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState())
                         .padding(bottom = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     fallbackItems.forEach { item ->
                         DashboardCard(item) {
@@ -1430,7 +1878,7 @@ fun SaaSDashboardView(viewModel: MarketViewModel) {
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
                     .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 featuredItems.forEach { item ->
                     DashboardCard(item) {
@@ -1440,9 +1888,9 @@ fun SaaSDashboardView(viewModel: MarketViewModel) {
             }
         }
 
-        // Trending Assets List
+        // Trending Assets right now 🔥
         Text(
-            "Trending Assets right now 🔥",
+            "Trending Market Assets 🔥",
             color = Color.White,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
@@ -1450,10 +1898,10 @@ fun SaaSDashboardView(viewModel: MarketViewModel) {
         )
 
         val trendingList = listOf(
-            Triple("🔥 BMW M5", "520,000,000", "Vehicle"),
-            Triple("🔥 G63 AMG", "450,000,000", "Vehicle"),
-            Triple("🔥 House #20", "120,000,000", "Property"),
-            Triple("🔥 Gas Station", "850,000,000", "Business")
+            Triple("BMW M5 Competition", "520,000,000", "Vehicle"),
+            Triple("G63 AMG G-Wagon", "450,000,000", "Vehicle"),
+            Triple("Premium Villa #20", "120,000,000", "Property"),
+            Triple("Downtown Gas Station", "850,000,000", "Business")
         )
 
         trendingList.forEach { (asset, price, category) ->
@@ -1462,11 +1910,11 @@ fun SaaSDashboardView(viewModel: MarketViewModel) {
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
                     .clickable {
-                        viewModel.searchQuery.value = asset.replace("🔥 ", "")
+                        viewModel.searchQuery.value = asset
                         viewModel.selectedCategoryFilter.value = if (category == "Vehicle") "Vehicle" else "ALL"
-                        viewModel.selectSection(MainSection.MARKETPLACE)
+                        onTabChange("market")
                     },
-                colors = CardDefaults.cardColors(containerColor = CardSlateBg),
+                colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.85f)),
                 shape = RoundedCornerShape(10.dp),
                 border = BorderStroke(0.5.dp, ElevatedSlate)
             ) {
@@ -1477,22 +1925,261 @@ fun SaaSDashboardView(viewModel: MarketViewModel) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(34.dp)
                                 .background(ElevatedSlate, RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(if (category == "Vehicle") "🚗" else "🏠", fontSize = 16.sp)
+                            val categoryIcon = when (category.lowercase()) {
+                                "vehicle" -> "🚗"
+                                "property" -> "🏠"
+                                "business" -> "🏢"
+                                else -> "📦"
+                            }
+                            Text(categoryIcon, fontSize = 16.sp)
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text(asset, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            Text(category, color = SoftGrayText, fontSize = 10.sp)
+                            Text(asset, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(category, color = SoftGrayText, fontSize = 9.sp)
+                                Text("•", color = MutedText, fontSize = 9.sp)
+                                Text("🔥 Hot Market Demand", color = GoldAccent, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
-                    Text("$$price", color = GreenVerify, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "$$price",
+                            color = GreenVerify,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("▲", color = GreenVerify, fontSize = 7.sp)
+                            Text("+12.4% today", color = GreenVerify, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Live Transaction History Ledger Title
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "📜 Live Transaction Ledger",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                // Pulsing dot simulation
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(GreenVerify, CircleShape)
+                )
+            }
+        }
+
+        var showOnlyUserInvolved by remember { mutableStateOf(false) }
+
+        // Filter chips list
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val filterOptions = listOf(
+                false to "All Completed Trades",
+                true to "My Past Activity"
+            )
+            filterOptions.forEach { (option, label) ->
+                val active = showOnlyUserInvolved == option
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            if (active) {
+                                Brush.horizontalGradient(listOf(GoldAccent, TechCyan))
+                            } else {
+                                Brush.horizontalGradient(listOf(Color(0x1B8B9BB4), Color(0x0A8B9BB4)))
+                            }
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = if (active) Color.Transparent else ElevatedSlate,
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .clickable { showOnlyUserInvolved = option }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = label,
+                        color = if (active) Color.White else SoftGrayText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.25.sp
+                    )
+                }
+            }
+        }
+
+        val filteredTx = if (showOnlyUserInvolved) {
+            allTransactions.filter { it.isUserInvolved || it.buyerName == "NIKA_BOSS_RP" || it.sellerName == "NIKA_BOSS_RP" }
+        } else {
+            allTransactions
+        }
+
+        if (filteredTx.isEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.85f)),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(0.5.dp, ElevatedSlate)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("📁", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "No recorded deals found in this ledger filter.",
+                            color = MutedText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        } else {
+            filteredTx.forEach { tx ->
+                val isUsr = tx.isUserInvolved || tx.buyerName == "NIKA_BOSS_RP" || tx.sellerName == "NIKA_BOSS_RP"
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .testTag("ledger_item_${tx.id}"),
+                    colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.85f)),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        brush = if (isUsr) {
+                            Brush.horizontalGradient(listOf(GoldAccent, TechCyan))
+                        } else {
+                            Brush.horizontalGradient(listOf(ElevatedSlate, ElevatedSlate))
+                        }
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(ElevatedSlate, RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val icon = when (tx.category.lowercase()) {
+                                    "vehicle" -> "🚗"
+                                    "property" -> "🏠"
+                                    "business" -> "🏢"
+                                    "skin" -> "🎭"
+                                    else -> "📦"
+                                }
+                                Text(icon, fontSize = 14.sp)
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    tx.assetTitle,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        tx.buyerName,
+                                        color = if (tx.buyerName == "NIKA_BOSS_RP") GoldAccent else SoftGrayText,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (tx.buyerName == "NIKA_BOSS_RP") FontWeight.Bold else FontWeight.Normal
+                                    )
+                                    Text(
+                                        " ➔ ",
+                                        color = SoftGrayText,
+                                        fontSize = 11.sp
+                                    )
+                                    Text(
+                                        tx.sellerName,
+                                        color = if (tx.sellerName == "NIKA_BOSS_RP") GoldAccent else SoftGrayText,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (tx.sellerName == "NIKA_BOSS_RP") FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Text(
+                                formatCurrency(tx.price),
+                                color = CoinGold,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        when (tx.transactionType.uppercase()) {
+                                            "RCD" -> Color(0xFF1E3A8A)
+                                            "COMMUNITY" -> Color(0xFF065F46)
+                                            else -> Color(0xFF78350F)
+                                        },
+                                        RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    tx.transactionType,
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -2171,7 +2858,15 @@ fun DashboardCard(listing: MarketListing, onClick: () -> Unit) {
         modifier = Modifier
             .width(170.dp)
             .clickable { onClick() }
-            .border(1.dp, ElevatedSlate, RoundedCornerShape(12.dp)),
+            .border(
+                width = 1.dp,
+                brush = if (listing.isFeatured) {
+                    Brush.horizontalGradient(listOf(GoldAccent, TechCyan))
+                } else {
+                    Brush.horizontalGradient(listOf(ElevatedSlate, ElevatedSlate))
+                },
+                shape = RoundedCornerShape(12.dp)
+            ),
         colors = CardDefaults.cardColors(containerColor = CardSlateBg)
     ) {
         Column {
@@ -2180,37 +2875,57 @@ fun DashboardCard(listing: MarketListing, onClick: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(90.dp)
-                    .background(Brush.verticalGradient(listOf(ElevatedSlate, DeepSlateBg))),
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                ElevatedSlate.copy(alpha = 0.6f),
+                                CardSlateBg
+                            )
+                        )
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    when (listing.category) {
-                        "Vehicle" -> "🚗"
-                        "Property" -> "🏠"
-                        "Business" -> "🏢"
-                        "Skin" -> "🎨"
-                        else -> "📦"
-                    },
-                    fontSize = 24.sp
-                )
+                // Subtle circle glow behind icon
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(
+                            color = if (listing.isFeatured) GoldAccent.copy(alpha = 0.15f) else TechCyan.copy(alpha = 0.1f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        when (listing.category) {
+                            "Vehicle" -> "🚗"
+                            "Property" -> "🏠"
+                            "Business" -> "🏢"
+                            "Skin" -> "🎨"
+                            else -> "📦"
+                        },
+                        fontSize = 24.sp
+                    )
+                }
             }
-            Column(modifier = Modifier.padding(8.dp)) {
+            Column(modifier = Modifier.padding(10.dp)) {
                 Text(
                     listing.title,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    formatCurrency(listing.askingPrice),
-                    color = GoldAccent,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
+                    overflow = TextOverflow.Ellipsis,
+                    letterSpacing = 0.25.sp
                 )
                 Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    formatCurrency(listing.askingPrice),
+                    color = if (listing.isFeatured) TechCyan else GoldAccent,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 11.sp,
+                    letterSpacing = 0.1.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -2218,13 +2933,14 @@ fun DashboardCard(listing: MarketListing, onClick: () -> Unit) {
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("⭐", fontSize = 10.sp)
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text("95/100", color = SoftGrayText, fontSize = 9.sp)
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text("95/100", color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
                     if (listing.isVerifiedSeller) {
                         Box(
                             modifier = Modifier
-                                .background(GreenVerify.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                .background(GreenVerify.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+                                .border(0.5.dp, GreenVerify.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
                                 .padding(horizontal = 4.dp, vertical = 2.dp)
                         ) {
                             Text("VERIFIED", color = GreenVerify, fontSize = 7.sp, fontWeight = FontWeight.Bold)
@@ -2241,16 +2957,28 @@ fun DashboardCard(listing: MarketListing, onClick: () -> Unit) {
 fun SubSectionChip(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (selected) GoldAccent else ElevatedSlate)
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                if (selected) {
+                    Brush.horizontalGradient(listOf(GoldAccent, TechCyan))
+                } else {
+                    Brush.horizontalGradient(listOf(Color(0x1A8B9BB4), Color(0x0A8B9BB4)))
+                }
+            )
+            .border(
+                width = 1.dp,
+                color = if (selected) Color.Transparent else ElevatedSlate,
+                shape = RoundedCornerShape(10.dp)
+            )
             .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 6.dp)
+            .padding(horizontal = 14.dp, vertical = 8.dp)
     ) {
         Text(
             text = label,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
-            color = if (selected) DeepSlateBg else Color.White
+            color = if (selected) Color.White else SoftGrayText,
+            letterSpacing = 0.5.sp
         )
     }
 }
@@ -2291,28 +3019,40 @@ fun MarketplaceView(viewModel: MarketViewModel, listings: List<MarketListing>) {
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Category pill chips
+        // Category premium styled tab chips
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val categories = listOf("ALL", "Vehicle", "Property", "Business", "Skin", "Item")
-            categories.forEach { cat ->
-                val isSelected = filterCat == cat
+            val categories = listOf(
+                "ALL" to "🌐 ALL",
+                "Vehicle" to "🚗 Vehicles",
+                "Property" to "🏠 Properties",
+                "Business" to "🏢 Businesses",
+                "Skin" to "💎 Special Skins",
+                "Item" to "📦 Rare Goods"
+            )
+            categories.forEach { (catId, catLabel) ->
+                val isSelected = filterCat == catId
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSelected) GoldAccent else CardSlateBg)
-                        .clickable { viewModel.selectedCategoryFilter.value = cat }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isSelected) TechCyan.copy(alpha = 0.15f) else CardSlateBg.copy(alpha = 0.5f))
+                        .border(
+                            width = 0.5.dp,
+                            color = if (isSelected) TechCyan else ElevatedSlate,
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .clickable { viewModel.selectedCategoryFilter.value = catId }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
                     Text(
-                        cat,
+                        text = catLabel,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isSelected) DeepSlateBg else SoftGrayText
+                        color = if (isSelected) TechCyan else SoftGrayText
                     )
                 }
             }
@@ -2416,26 +3156,38 @@ fun ListingCard(listing: MarketListing, viewModel: MarketViewModel, onClick: () 
             .clickable { onClick() }
             .border(
                 border = BorderStroke(
-                    1.dp,
-                    if (listing.isFeatured) GoldAccent else if (listing.isUrgent) RedUrgent else ElevatedSlate
+                    width = 1.2.dp,
+                    color = if (listing.isFeatured) GoldAccent else if (listing.isUrgent) RedUrgent else ElevatedSlate.copy(alpha = 0.8f)
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(16.dp)
             ),
-        colors = CardDefaults.cardColors(containerColor = CardSlateBg),
-        shape = RoundedCornerShape(12.dp)
+        colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.9f)),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column {
-            // Main image block / Low visibility placeholder
+            // Main image block / Premium visual banner
             if (listing.images.isNotEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(110.dp)
+                        .height(130.dp)
                         .background(
                             Brush.verticalGradient(
-                                listOf(Color(0xFF1E293B), Color(0xFF0F1115))
+                                listOf(CardSlateBg, DeepSlateBg)
                             )
-                        ),
+                        )
+                        .drawBehind {
+                            // Subtly paint a futuristic holographic grid or horizontal scanner lines
+                            val gridSpacing = 40f
+                            val strokeWidth = 1f
+                            val color = TechCyan.copy(alpha = 0.04f)
+                            for (x in 0..size.width.toInt() step gridSpacing.toInt()) {
+                                drawLine(color, start = androidx.compose.ui.geometry.Offset(x.toFloat(), 0f), end = androidx.compose.ui.geometry.Offset(x.toFloat(), size.height), strokeWidth = strokeWidth)
+                            }
+                            for (y in 0..size.height.toInt() step gridSpacing.toInt()) {
+                                drawLine(color, start = androidx.compose.ui.geometry.Offset(0f, y.toFloat()), end = androidx.compose.ui.geometry.Offset(size.width, y.toFloat()), strokeWidth = strokeWidth)
+                            }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     val icon = when (listing.category) {
@@ -2446,33 +3198,54 @@ fun ListingCard(listing: MarketListing, viewModel: MarketViewModel, onClick: () 
                         else -> "📦"
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(icon, fontSize = 28.sp)
-                        Text(listing.images.first(), color = SoftGrayText, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        Box(
+                            modifier = Modifier
+                                .background(TechCyan.copy(alpha = 0.12f), CircleShape)
+                                .padding(12.dp)
+                        ) {
+                            Text(icon, fontSize = 34.sp)
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            listing.images.first().uppercase(),
+                            color = SoftGrayText,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.5.sp
+                        )
                     }
 
                     if (listing.watermarked) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(6.dp),
+                                .padding(8.dp),
                             contentAlignment = Alignment.BottomStart
                         ) {
-                            Text("🛡️ KAT_MARKET_NIKA • SECURE", color = GoldAccent, fontSize = 6.sp, fontWeight = FontWeight.Bold)
+                            Box(
+                                modifier = Modifier
+                                    .background(DeepSlateBg.copy(alpha = 0.85f), RoundedCornerShape(4.dp))
+                                    .border(1.dp, GoldAccent.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                            ) {
+                                Text("🛡️ KAT ESCROW PROTECTION", color = GoldAccent, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                            }
                         }
                     }
 
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(6.dp),
+                            .padding(8.dp),
                         contentAlignment = Alignment.TopEnd
                     ) {
                         Box(
                             modifier = Modifier
-                                .background(Color(0xE60F1115), RoundedCornerShape(4.dp))
-                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                                .background(DeepSlateBg.copy(alpha = 0.8f), RoundedCornerShape(6.dp))
+                                .border(0.5.dp, TechCyan.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 3.dp)
                         ) {
-                            Text("📸 ${listing.images.size}", color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                            Text("⚡ S-${listing.id}", color = TechCyan, fontSize = 8.sp, fontWeight = FontWeight.Black)
                         }
                     }
                 }
@@ -2480,13 +3253,18 @@ fun ListingCard(listing: MarketListing, viewModel: MarketViewModel, onClick: () 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(110.dp)
-                        .background(Color(0xFF292524)), // warm brown alert
+                        .height(130.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color(0xFF2E1A1A), DeepSlateBg)
+                            )
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(10.dp)) {
-                        Text("⚠ Low Visibility", color = Color(0xFFFBBF24), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text("Buyers trust listings with proof screenshots", color = Color(0xFFD6D3D1), fontSize = 8.sp, textAlign = TextAlign.Center)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(12.dp)) {
+                        Text("⚠️ LOW TRUST SCREENSHOT PROOF GAP", color = CoinGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Buyers prefer items containing active visual verification", color = SoftGrayText, fontSize = 9.sp, textAlign = TextAlign.Center)
                     }
                 }
             }
@@ -5329,8 +6107,17 @@ fun CrateStoreCard(name: String, price: Int, type: String, viewModel: MarketView
 }
 
 // ----------------------------------------------------
+// ----------------------------------------------------
 // SECTION 9: STAFF PANEL & ADMINISTRATION
 // ----------------------------------------------------
+fun formatCurrencyOffline(amount: Long): String {
+    return try {
+        String.format("%,d", amount)
+    } catch (e: Exception) {
+        amount.toString()
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun AdministrationView(
@@ -5338,9 +6125,33 @@ fun AdministrationView(
     auditLogs: List<AuditLog>,
     rcdDeals: List<RcdDeal>
 ) {
-    var activeAdminTab by remember { mutableStateOf("ESCROWS") } // "ESCROWS", "COINS_QUEUE", "AUDITS"
+    var activeAdminTab by remember { mutableStateOf("DASHBOARD") }
+    
+    // Core database collections
+    val listings by viewModel.allListings.collectAsState()
+    val profiles by viewModel.richList.collectAsState()
+    val reports by viewModel.scammerReports.collectAsState()
     val coinPurchases by viewModel.allCoinPurchases.collectAsState()
     val netWorthRequests by viewModel.allNetWorthVerifications.collectAsState()
+    val transactions by viewModel.marketTransactions.collectAsState()
+    val families by viewModel.allFamilies.collectAsState()
+    val businesses by viewModel.allBusinesses.collectAsState()
+    
+    // Sub-view: Users Search Dossier states
+    var userSearchQuery by remember { mutableStateOf("") }
+    var selectedUserDossier by remember { mutableStateOf<UserProfile?>(null) }
+    var coinAllocStr by remember { mutableStateOf("1000") }
+    var customRepStr by remember { mutableStateOf("100") }
+    var customTitleText by remember { mutableStateOf("") }
+    
+    // Sub-view: Announcements states
+    var announceSubject by remember { mutableStateOf("") }
+    var announceMsgText by remember { mutableStateOf("") }
+    var announcePushCategory by remember { mutableStateOf("ALERT") }
+    
+    // Sub-view: Economy Simulation states
+    var marketplaceTaxRate by remember { mutableStateOf("5") }
+    var minListingDepositCoins by remember { mutableStateOf("10") }
 
     Column(
         modifier = Modifier
@@ -5348,146 +6159,876 @@ fun AdministrationView(
             .padding(12.dp)
             .verticalScroll(rememberScrollState())
     ) {
+        // --- LUXURY TOP BRAIN CONTROL HUB HEADER ---
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = CardSlateBg)
+            colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.95f)),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.2.dp, GoldAccent.copy(alpha = 0.4f))
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text("🛠️ MASTER ADMINISTRATION OPERATING CONSOLE", color = GoldAccent, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                Text("Manage permissions, verify credentials, bypass database entities, and track audit ledgers.", color = SoftGrayText, fontSize = 11.sp)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Direct bypass controls
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = CardSlateBg)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text("Instant System Override Actions", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Button(
-                        onClick = { viewModel.verifySelf(true) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenVerify)
-                    ) {
-                        Text("Grant ID Verified", color = DeepSlateBg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF22C55E))
+                                .drawBehind {
+                                    // Animated pulsating radial highlight for active link status
+                                    drawCircle(
+                                        color = Color(0xFF22C55E).copy(alpha = 0.4f),
+                                        radius = size.minDimension * 0.85f
+                                    )
+                                }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "MASTER ADMINISTRATION OPERATING SYSTEM v3.45",
+                            color = GoldAccent,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.8.sp
+                        )
                     }
-
-                    Button(
-                        onClick = { viewModel.awardAdminCoins(5000) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = GoldAccent)
+                    Box(
+                        modifier = Modifier
+                            .background(TechCyan.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                            .border(0.5.dp, TechCyan.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
-                        Text("Mint +5k Coins", color = DeepSlateBg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("STAFF CLEARED", color = TechCyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Button(
-                    onClick = { viewModel.logoutGoogle() },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = RedUrgent)
-                ) {
-                    Text("Log Out from Google Connection", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Button(
-                    onClick = { viewModel.triggerFactoryCleanup() },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = ElevatedSlate)
-                ) {
-                    Text("Owner Factory Purge Reset", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Three-tab Selector Header Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(CardSlateBg, RoundedCornerShape(8.dp))
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            val tabs = listOf(
-                "ESCROWS" to "Escrows",
-                "COINS_QUEUE" to "🪙 Coins Queue",
-                "NET_WORTH" to "🛡 Wealth Queue",
-                "AUDITS" to "Audits"
-            )
-            tabs.forEach { (tabId, label) ->
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (activeAdminTab == tabId) ElevatedSlate else Color.Transparent)
-                        .clickable { activeAdminTab = tabId }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        label,
-                        color = if (activeAdminTab == tabId) GoldAccent else Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                
+                Spacer(modifier = Modifier.height(10.dp))
+                
+                Text(
+                    "COGNITIVE DIRECTORY HUB",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.5.sp
+                )
+                Text(
+                    "Manage corporate permissions, audit cryptographic escrows, adjust coin matrices, review community scam cases, and schedule alerts.",
+                    color = SoftGrayText,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                )
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Active Tab Display
-        when (activeAdminTab) {
-            "AUDITS" -> {
-                Text("System Security Audit Records", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Spacer(modifier = Modifier.height(6.dp))
-                if (auditLogs.isEmpty()) {
-                    Text("No administrative audit logs captured.", color = MutedText, fontSize = 11.sp)
-                } else {
-                    auditLogs.take(40).forEach { log ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            colors = CardDefaults.cardColors(containerColor = CardSlateBg)
-                        ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(log.action, color = GoldAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    Text(log.actorName, color = SoftGrayText, fontSize = 10.sp)
+        // --- MODERN RESPONSIVE NAVIGATION DOCK ---
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CardSlateBg.copy(alpha = 0.9f), RoundedCornerShape(14.dp))
+                .border(0.8.dp, ElevatedSlate.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
+                .padding(8.dp)
+        ) {
+            Text(
+                "DIRECT DATA CONSOLE DIRECTORIES",
+                color = SoftGrayText,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp,
+                modifier = Modifier.padding(start = 6.dp, bottom = 6.dp)
+            )
+
+            // Side scrolling tab selectors
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf(
+                    "DASHBOARD" to "📊 Overview",
+                    "USERS" to "👤 Users dossier",
+                    "LISTINGS" to "🛒 Listings",
+                    "REPORTS" to "🛡️ scam disputes",
+                    "VERIFICATIONS" to "✅ verify",
+                    "ECONOMY" to "💰 economy",
+                    "ANNOUNCEMENTS" to "📢 announce",
+                    "SYSTEM_HEALTH" to "🟢 Status & Logs"
+                ).forEach { (tabId, label) ->
+                    val isSelected = activeAdminTab == tabId
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .then(
+                                if (isSelected) {
+                                    Modifier.background(Brush.horizontalGradient(listOf(TechCyan.copy(alpha = 0.22f), GoldAccent.copy(alpha = 0.12f))))
+                                } else {
+                                    Modifier.background(Color.Transparent)
                                 }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(log.details, color = Color.White, fontSize = 11.sp)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (isSelected) GoldAccent else ElevatedSlate.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .clickable { activeAdminTab = tabId }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                label.uppercase(),
+                                color = if (isSelected) Color.White else SoftGrayText,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold
+                            )
+                            
+                            // Mini dynamic badge calculations on directories
+                            val badgeVal = when (tabId) {
+                                "REPORTS" -> reports.filter { it.status == "PENDING" }.size
+                                "VERIFICATIONS" -> netWorthRequests.filter { it.status == "PENDING" }.size + rcdDeals.filter { it.staffReviewStatus == "PENDING" }.size
+                                "ECONOMY" -> coinPurchases.filter { it.status == "PENDING" }.size
+                                else -> 0
+                            }
+                            if (badgeVal > 0) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(15.dp)
+                                        .background(if (tabId == "REPORTS") RedUrgent else Color(0xFFF97316), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        badgeVal.toString(),
+                                        color = Color.White,
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-            "ESCROWS" -> {
-                Text("Escrow Account Verification Slips", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // --- SUB DIRECTORY RENDERING SWITCHBOARD ---
+        when (activeAdminTab) {
+            "DASHBOARD" -> {
+                // --- PLATFORM OVERVIEW & STATS GRAPH ---
+                Text(
+                    "📊 PLATFORM OVERVIEW INDEX",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Beautiful Grid structure using Columns & Rows for dynamic stats spacing
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        StatDisplayCard(
+                            title = "TOTAL REGISTERED USERS",
+                            value = "${profiles.size + 1480}",
+                            subtext = "+18 premium subscribers today",
+                            accentColor = TechCyan,
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatDisplayCard(
+                            title = "ACTIVE RP BOARD ITEM LISTINGS",
+                            value = "${listings.filter { it.status == "ACTIVE" }.size}",
+                            subtext = "${listings.filter { it.status == "SOLD" }.size} certified sales in history",
+                            accentColor = GoldAccent,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        StatDisplayCard(
+                            title = "SECURED ESCROWS REVIEW QUEUE",
+                            value = "${rcdDeals.filter { it.staffReviewStatus == "PENDING" }.size}",
+                            subtext = "Estimated staff response: 4 mins",
+                            accentColor = CoinGold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatDisplayCard(
+                            title = "COINS DEPOSITS PENDING",
+                            value = "${coinPurchases.filter { it.status == "PENDING" }.size}",
+                            subtext = "Requires screenshot manual proof audit",
+                            accentColor = GreenVerify,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        StatDisplayCard(
+                            title = "FRAUD BAN REPORTS SHIELDS",
+                            value = "${reports.filter { it.status == "PENDING" }.size}",
+                            subtext = "Critical security checks active",
+                            accentColor = RedUrgent,
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatDisplayCard(
+                            title = "REGISTERED CORPS / GUILDS",
+                            value = "${businesses.size} LLC • ${families.size} Guilds",
+                            subtext = "Cumulative bank: 41B Grand",
+                            accentColor = Color(0xFFA855F7),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // --- FUTURISTIC CANVAS CHART ---
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.8f)),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, ElevatedSlate.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    "📈 HOURLY PLATFORM EXCHANGE VOLUME (MILLIONS)",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                                Text(
+                                    "Aggregated trades, banking transactions, and listing deposits",
+                                    color = SoftGrayText,
+                                    fontSize = 9.sp
+                                )
+                            }
+                            Text("UTC PEAK TRADING TIME", color = TechCyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Drawing vector-based line graph on Kotlin Canvas
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .background(DeepSlateBg, RoundedCornerShape(10.dp))
+                                .border(0.5.dp, ElevatedSlate.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                                .drawBehind {
+                                    // Paint holographic dashboard grids
+                                    val gridCountX = 6
+                                    val spacingX = size.width / gridCountX
+                                    val gridCountY = 4
+                                    val spacingY = size.height / gridCountY
+
+                                    for (i in 1..gridCountX) {
+                                        drawLine(
+                                            color = ElevatedSlate.copy(alpha = 0.08f),
+                                            start = androidx.compose.ui.geometry.Offset(i * spacingX, 0f),
+                                            end = androidx.compose.ui.geometry.Offset(i * spacingX, size.height),
+                                            strokeWidth = 1f
+                                        )
+                                    }
+                                    for (i in 1..gridCountY) {
+                                        drawLine(
+                                            color = ElevatedSlate.copy(alpha = 0.08f),
+                                            start = androidx.compose.ui.geometry.Offset(0f, i * spacingY),
+                                            end = androidx.compose.ui.geometry.Offset(size.width, i * spacingY),
+                                            strokeWidth = 1f
+                                        )
+                                    }
+
+                                    // Render graph path representing simulator volume
+                                    val points = listOf(
+                                        androidx.compose.ui.geometry.Offset(0f, size.height * 0.8f),
+                                        androidx.compose.ui.geometry.Offset(size.width * 0.15f, size.height * 0.72f),
+                                        androidx.compose.ui.geometry.Offset(size.width * 0.3f, size.height * 0.5f),
+                                        androidx.compose.ui.geometry.Offset(size.width * 0.45f, size.height * 0.15f), // Peaks!
+                                        androidx.compose.ui.geometry.Offset(size.width * 0.6f, size.height * 0.35f),
+                                        androidx.compose.ui.geometry.Offset(size.width * 0.75f, size.height * 0.85f),
+                                        androidx.compose.ui.geometry.Offset(size.width * 0.9f, size.height * 0.22f),
+                                        androidx.compose.ui.geometry.Offset(size.width, size.height * 0.1f)
+                                    )
+
+                                    val path = androidx.compose.ui.graphics.Path().apply {
+                                        moveTo(points.first().x, points.first().y)
+                                        for (i in 1 until points.size) {
+                                            quadraticTo(
+                                                (points[i - 1].x + points[i].x) / 2,
+                                                (points[i - 1].y + points[i].y) / 2,
+                                                points[i].x,
+                                                points[i].y
+                                            )
+                                        }
+                                    }
+
+                                    // Filled area under the curve
+                                    val areaPath = androidx.compose.ui.graphics.Path().apply {
+                                        addPath(path)
+                                        lineTo(size.width, size.height)
+                                        lineTo(0f, size.height)
+                                        close()
+                                    }
+
+                                    drawPath(
+                                        path = areaPath,
+                                        brush = Brush.verticalGradient(
+                                            listOf(TechCyan.copy(alpha = 0.18f), Color.Transparent)
+                                        )
+                                    )
+
+                                    drawPath(
+                                        path = path,
+                                        color = TechCyan,
+                                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f)
+                                    )
+
+                                    // Draw node dots
+                                    points.forEach { pt ->
+                                        drawCircle(color = DeepSlateBg, radius = 5f, center = pt)
+                                        drawCircle(color = GoldAccent, radius = 2.5f, center = pt)
+                                    }
+                                }
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Horizontal graph tags
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            listOf("04:00", "08:00", "12:00", "16:00 UTC", "20:00", "00:00").forEach { timeTag ->
+                                Text(timeTag, color = SoftGrayText, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // --- ASSET COMPOSITIONS INDEX ---
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.8f)),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, ElevatedSlate.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            "🔥 MARKET ASSET DEMAND ANALYSIS",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Category distribution progress blocks
+                        listOf(
+                            Triple("🚗 HIGH-END VEHICLES (M5, CHRONOS, AMV)", "48%", TechCyan),
+                            Triple("🏢 PREMIUM PROPERTIES (CHAMBERLAIN HOUSES, APTS)", "32%", GoldAccent),
+                            Triple("💼 SYSTEM SEEDED LLC COMPANIES & STANDS", "15%", Color(0xFFA855F7)),
+                            Triple("💎 SUPPORTED KAT CURRENCY TRANSFERS", "5%", GreenVerify)
+                        ).forEach { (label, ratio, color) ->
+                            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(label, color = SoftGrayText, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    Text(ratio, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                                }
+                                Spacer(modifier = Modifier.height(3.dp))
+                                LinearProgressIndicator(
+                                    progress = ratio.replace("%", "").toFloat() / 100f,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp)
+                                        .clip(CircleShape),
+                                    color = color,
+                                    trackColor = DeepSlateBg
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            "USERS" -> {
+                // --- ADMIN USER PROFILE OVERRIDES ---
+                Text(
+                    "👤 USER DOSSIER CONTROL ROOM",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp
+                )
                 Spacer(modifier = Modifier.height(6.dp))
-                val pendingDeals = rcdDeals.filter { it.staffReviewStatus == "PENDING" }
-                if (pendingDeals.isEmpty()) {
-                    Text("Pristine! No escrows require staff clearance.", color = MutedText, fontSize = 11.sp)
+
+                // User search query field
+                OutlinedTextField(
+                    value = userSearchQuery,
+                    onValueChange = { userSearchQuery = it },
+                    placeholder = { Text("Search system users database by RP nickname (e.g. Nika, Vercetti)...", fontSize = 11.sp, color = MutedText) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("admin_user_search_field"),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = TechCyan,
+                        unfocusedBorderColor = ElevatedSlate,
+                        focusedContainerColor = DeepSlateBg,
+                        unfocusedContainerColor = DeepSlateBg
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                val filteredProfiles = if (userSearchQuery.isBlank()) profiles else {
+                    profiles.filter { it.username.contains(userSearchQuery, ignoreCase = true) }
+                }
+
+                if (filteredProfiles.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("No registered citizens match search records.", color = MutedText, fontSize = 11.sp)
+                    }
                 } else {
-                    pendingDeals.forEach { deal ->
+                    // List of profiles
+                    filteredProfiles.take(4).forEach { citizen ->
+                        val isSelected = selectedUserDossier?.id == citizen.id
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .border(
+                                    0.8.dp,
+                                    if (isSelected) GoldAccent else ElevatedSlate.copy(alpha = 0.3f),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .clickable {
+                                    selectedUserDossier = citizen
+                                    coinAllocStr = citizen.coinBalance.toString()
+                                    customRepStr = citizen.reputation.toString()
+                                    customTitleText = citizen.title
+                                },
+                            colors = CardDefaults.cardColors(containerColor = if (isSelected) ElevatedSlate.copy(alpha = 0.25f) else CardSlateBg)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(citizen.username, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(
+                                                        when (citizen.role) {
+                                                            "Administrator" -> RedUrgent.copy(alpha = 0.15f)
+                                                            "Staff" -> TechCyan.copy(alpha = 0.15f)
+                                                            "VIP" -> GoldAccent.copy(alpha = 0.15f)
+                                                            "Banned" -> Color.Red.copy(alpha = 0.2f)
+                                                            else -> ElevatedSlate.copy(alpha = 0.4f)
+                                                        },
+                                                        RoundedCornerShape(4.dp)
+                                                    )
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    citizen.role.uppercase(),
+                                                    color = when (citizen.role) {
+                                                        "Administrator" -> RedUrgent
+                                                        "Staff" -> TechCyan
+                                                        "VIP" -> GoldAccent
+                                                        "Banned" -> Color.Red
+                                                        else -> Color.White
+                                                    },
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Black
+                                                )
+                                            }
+                                        }
+                                        Text("Credential Badge: ${citizen.title.ifBlank { "Unranked Citizen" }}", color = SoftGrayText, fontSize = 10.sp)
+                                    }
+                                    
+                                    Text(
+                                        "${citizen.reputation}% REP",
+                                        color = if (citizen.reputation >= 80) GreenVerify else if (citizen.reputation >= 50) GoldAccent else RedUrgent,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text("Wallet: $${formatCurrencyOffline(citizen.walletBalance)}", color = SoftGrayText, fontSize = 10.sp)
+                                        Text("Bank: $${formatCurrencyOffline(citizen.bankBalance)}", color = SoftGrayText, fontSize = 10.sp)
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text("Coins: ${citizen.coinBalance} KC", color = CoinGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Text("Completed Deals: ${citizen.completedDeals}", color = SoftGrayText, fontSize = 10.sp)
+                                    }
+                                }
+
+                                // Dossier Actions Expanded on Selection
+                                if (isSelected) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Divider(color = ElevatedSlate.copy(alpha = 0.5f))
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Text("🔒 SECTOR PRIVILEGE SECURITY CONFIG", color = GoldAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Input overrides
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = coinAllocStr,
+                                            onValueChange = { coinAllocStr = it },
+                                            label = { Text("Coins Balance", fontSize = 8.sp) },
+                                            modifier = Modifier.weight(1f),
+                                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                                        )
+
+                                        OutlinedTextField(
+                                            value = customRepStr,
+                                            onValueChange = { customRepStr = it },
+                                            label = { Text("Reputation %", fontSize = 8.sp) },
+                                            modifier = Modifier.weight(1f),
+                                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    OutlinedTextField(
+                                        value = customTitleText,
+                                        onValueChange = { customTitleText = it },
+                                        placeholder = { Text("Custom Title Text (e.g. Master Negotiator)", fontSize = 10.sp) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    // Action buttons row (Ban, role modifications)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Button(
+                                            onClick = {
+                                                val cAmount = coinAllocStr.toIntOrNull() ?: citizen.coinBalance
+                                                val rPct = customRepStr.toIntOrNull() ?: citizen.reputation
+                                                val updated = citizen.copy(
+                                                    coinBalance = cAmount,
+                                                    reputation = rPct,
+                                                    title = customTitleText
+                                                )
+                                                viewModel.adminSaveUserProfile(updated)
+                                                selectedUserDossier = updated
+                                            },
+                                            modifier = Modifier.weight(1.3f).height(34.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = GreenVerify)
+                                        ) {
+                                            Text("Saves updates", color = DeepSlateBg, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                val updateToVip = citizen.copy(role = "VIP")
+                                                viewModel.adminSaveUserProfile(updateToVip)
+                                                selectedUserDossier = updateToVip
+                                            },
+                                            modifier = Modifier.weight(1f).height(34.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = ElevatedSlate)
+                                        ) {
+                                            Text("Grant VIP", color = Color.White, fontSize = 10.sp)
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                val mUserProfile = citizen.copy(reputation = 100, vouchesCount = citizen.vouchesCount + 5)
+                                                viewModel.adminSaveUserProfile(mUserProfile)
+                                                selectedUserDossier = mUserProfile
+                                            },
+                                            modifier = Modifier.weight(1.1f).height(34.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = ElevatedSlate)
+                                        ) {
+                                            Text("Reset Rep", color = Color.White, fontSize = 10.sp)
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                viewModel.adminBanUser(citizen)
+                                                selectedUserDossier = null
+                                            },
+                                            modifier = Modifier.weight(1f).height(34.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = RedUrgent)
+                                        ) {
+                                            Text("BAN USER", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            "LISTINGS" -> {
+                // --- MARKETPLACE LISTING OVERRIDES ---
+                Text(
+                    "🛒 BOARD LISTINGS AUDITOR & MODERATOR",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                val liveListings = listings.filter { it.status == "ACTIVE" }
+                if (liveListings.isEmpty()) {
+                    Text("No listings currently hosted on server board.", color = MutedText, fontSize = 11.sp)
+                } else {
+                    liveListings.forEach { item ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = CardSlateBg),
+                            border = BorderStroke(0.6.dp, ElevatedSlate)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(item.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text("Seller: ${item.sellerName} • Category: ${item.category}", color = SoftGrayText, fontSize = 10.sp)
+                                    }
+                                    Text(
+                                        "$${formatCurrencyOffline(item.askingPrice)}",
+                                        color = GoldAccent,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 13.sp
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(item.notes.ifBlank { "No descriptions logs provided." }, color = SoftGrayText, fontSize = 10.sp, maxLines = 2)
+
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    // Feature toggle button
+                                    Button(
+                                        onClick = {
+                                            val updated = item.copy(isFeatured = !item.isFeatured)
+                                            viewModel.adminSaveListing(updated)
+                                        },
+                                        modifier = Modifier.weight(1f).height(32.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (item.isFeatured) GoldAccent else ElevatedSlate
+                                        )
+                                    ) {
+                                        Text(if (item.isFeatured) "⭐ FEATURED" else "⭐ Feature", color = if (item.isFeatured) DeepSlateBg else Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    // Urgent toggle button
+                                    Button(
+                                        onClick = {
+                                            val updated = item.copy(isUrgent = !item.isUrgent)
+                                            viewModel.adminSaveListing(updated)
+                                        },
+                                        modifier = Modifier.weight(1f).height(32.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (item.isUrgent) RedUrgent else ElevatedSlate
+                                        )
+                                    ) {
+                                        Text(if (item.isUrgent) "⚡ URGENT" else "⚡ Urgent", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    // Watermark toggle button
+                                    Button(
+                                        onClick = {
+                                            viewModel.updateListingWatermark(item, !item.watermarked)
+                                        },
+                                        modifier = Modifier.weight(1.1f).height(32.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (item.watermarked) TechCyan else ElevatedSlate
+                                        )
+                                    ) {
+                                        Text(if (item.watermarked) "🛡️ WATERMARKED" else "🛡️ Protect", color = if (item.watermarked) DeepSlateBg else Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    // Deletion button
+                                    Button(
+                                        onClick = { viewModel.adminDeleteListing(item) },
+                                        modifier = Modifier.weight(0.9f).height(32.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = RedUrgent)
+                                    ) {
+                                        Text("✕ DISMISS", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            "REPORTS" -> {
+                // --- SCAM Disputes & Shields Center ---
+                Text(
+                    "🛡️ COMPLAINT AUDITS SHIELDS MODERATION",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                val openScams = reports.filter { it.status == "PENDING" || it.status == "UNDER_INVESTIGATION" }
+                if (openScams.isEmpty()) {
+                    Text("Pristine record: No security file claims are pending staff review.", color = MutedText, fontSize = 11.sp)
+                } else {
+                    openScams.forEach { report ->
+                        var staffShieldNote by remember { mutableStateOf("") }
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = CardSlateBg),
+                            border = BorderStroke(0.8.dp, ElevatedSlate)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text("Claim id: #${report.id} • Category: SCAM PROFILE", color = RedUrgent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                        Text("Reporter: ${report.reporterName}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .background(
+                                                if (report.status == "PENDING") Color(0xFFEF4444).copy(alpha = 0.15f)
+                                                else Color(0xFFEAB308).copy(alpha = 0.15f),
+                                                RoundedCornerShape(4.dp)
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(report.status, color = if (report.status == "PENDING") Color(0xFFEF4444) else Color(0xFFEAB308), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text("Suspect RP nickname: ${report.reportedUsername}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                                Text("Detail specifications: ${report.description}", color = SoftGrayText, fontSize = 10.sp, lineHeight = 13.sp)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Evidence reference line: ${report.evidenceScreenshot}", color = CyanInfo, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedTextField(
+                                    value = staffShieldNote,
+                                    onValueChange = { staffShieldNote = it },
+                                    placeholder = { Text("Write investigation log notes or verdict comments...", fontSize = 10.sp) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                                )
+
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    // Confirm Ban report
+                                    Button(
+                                        onClick = { viewModel.updateScammerReportStatus(report, "CONFIRMED_SCAMMER", staffShieldNote) },
+                                        modifier = Modifier.weight(1f).height(32.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = RedUrgent)
+                                    ) {
+                                        Text("☠️ CONFIRM BAN", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    // Set under investigation status
+                                    Button(
+                                        onClick = { viewModel.updateScammerReportStatus(report, "UNDER_INVESTIGATION", staffShieldNote) },
+                                        modifier = Modifier.weight(1f).height(32.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = ElevatedSlate)
+                                    ) {
+                                        Text("🔍 INVESTIGATING", color = Color.White, fontSize = 9.sp)
+                                    }
+
+                                    // Dismiss dispute report
+                                    Button(
+                                        onClick = { viewModel.updateScammerReportStatus(report, "DISMISSED", staffShieldNote) },
+                                        modifier = Modifier.weight(0.9f).height(32.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = GreenVerify)
+                                    ) {
+                                        Text("✅ DISMISS", color = DeepSlateBg, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            "VERIFICATIONS" -> {
+                // --- PENDING VERIFICATIONS QUEUES ---
+                Text(
+                    "✅ ACCOUNT VERIFICATIONS SYSTEM QUEUE",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Subsection A: RCD Escrows Review
+                Text("Escrow Ledger Trade Requests", color = TechCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(4.dp))
+
+                val pendingEscrow = rcdDeals.filter { it.staffReviewStatus == "PENDING" }
+                if (pendingEscrow.isEmpty()) {
+                    Text("No escrows waiting staff credential review.", color = MutedText, fontSize = 10.sp, modifier = Modifier.padding(bottom = 12.dp))
+                } else {
+                    pendingEscrow.forEach { deal ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -5495,30 +7036,86 @@ fun AdministrationView(
                             colors = CardDefaults.cardColors(containerColor = CardSlateBg)
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
-                                Text(deal.assetTitle, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                Text("Buyer: ${deal.buyerName} • Real Cost: $${deal.realCurrencyPrice}", color = SoftGrayText, fontSize = 11.sp)
-                                Text("Uploaded Proof: ${deal.proofImgName}", color = CyanInfo, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(deal.assetTitle, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text("Sender: ${deal.buyerName} • Ask: $${deal.realCurrencyPrice}", color = SoftGrayText, fontSize = 10.sp)
+                                Text("Uploaded Slip Location: ${deal.proofImgName}", color = CyanInfo, fontSize = 9.sp, fontWeight = FontWeight.Bold)
 
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Button(
                                         onClick = { viewModel.processStaffRcdDeal(deal, "APPROVED") },
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.weight(1f).height(32.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = GreenVerify)
                                     ) {
-                                        Text("Approve Deal", color = DeepSlateBg, fontSize = 11.sp)
+                                        Text("Approve Deal", color = DeepSlateBg, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                     }
-
                                     Button(
                                         onClick = { viewModel.processStaffRcdDeal(deal, "REJECTED") },
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.weight(1f).height(32.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = RedUrgent)
                                     ) {
-                                        Text("Reject Slip", color = Color.White, fontSize = 11.sp)
+                                        Text("Reject Slip", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Subsection B: Net Worth Verification Queue
+                Text("Net Worth Citizens Audits", color = GoldAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(4.dp))
+
+                val pendingNetWorth = netWorthRequests.filter { it.status == "PENDING" }
+                if (pendingNetWorth.isEmpty()) {
+                    Text("No Net Worth requests waiting credential approval.", color = MutedText, fontSize = 10.sp)
+                } else {
+                    pendingNetWorth.forEach { req ->
+                        var reviewNoteText by remember { mutableStateOf("") }
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = CardSlateBg)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("Applicant username: ${req.username}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text("Net Worth balance claims: $${formatCurrencyOffline(req.bankBalance)}", color = SoftGrayText, fontSize = 10.sp)
+                                Text("Asset Specifications details: JSON registered assets are attached in the protocol dossier", color = SoftGrayText, fontSize = 10.sp)
+                                Text("Evidence reference line: ${req.bankScreenshotPath}", color = CyanInfo, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedTextField(
+                                    value = reviewNoteText,
+                                    onValueChange = { reviewNoteText = it },
+                                    placeholder = { Text("Write staff feedback logs...", fontSize = 10.sp) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = { viewModel.processNetWorthRequest(req, "APPROVED", reviewNoteText) },
+                                        modifier = Modifier.weight(1f).height(32.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = GreenVerify)
+                                    ) {
+                                        Text("Approve Wealth", color = DeepSlateBg, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Button(
+                                        onClick = { viewModel.processNetWorthRequest(req, "REJECTED", reviewNoteText) },
+                                        modifier = Modifier.weight(1.3f).height(32.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = RedUrgent)
+                                    ) {
+                                        Text("Disapprove Claims", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -5526,16 +7123,92 @@ fun AdministrationView(
                     }
                 }
             }
-            "COINS_QUEUE" -> {
-                Text("Coin Purchases Moderation Queue", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Spacer(modifier = Modifier.height(6.dp))
-                val activeCoins = coinPurchases.filter { it.status == "PENDING" || it.status == "NEED_PROOF" }
-                if (activeCoins.isEmpty()) {
-                    Text("No pending coin purchases require approval.", color = MutedText, fontSize = 11.sp)
+
+            "ECONOMY" -> {
+                // --- ECONOMY CONTROL AND REFILLS QUEUE ---
+                Text(
+                    "💰 PLATFORM ECONOMY REGULATORY DIAL",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Direct adjustments
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = CardSlateBg)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("Simulated Corporate Parameter Control", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Text("Alter system taxations or issue systemic rewards.", color = SoftGrayText, fontSize = 9.sp)
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = marketplaceTaxRate,
+                                onValueChange = { marketplaceTaxRate = it },
+                                label = { Text("Exchange Tax Rate (%)", fontSize = 8.sp) },
+                                modifier = Modifier.weight(1f),
+                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                            )
+
+                            OutlinedTextField(
+                                value = minListingDepositCoins,
+                                onValueChange = { minListingDepositCoins = it },
+                                label = { Text("Board Listing Cost (Coins)", fontSize = 8.sp) },
+                                modifier = Modifier.weight(1f),
+                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    viewModel.awardAdminCoins(5000)
+                                },
+                                modifier = Modifier.weight(1.3f).height(34.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = GoldAccent)
+                            ) {
+                                Text("Mint +5k Coins to Me", color = DeepSlateBg, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = {
+                                    viewModel.adminPublishNotification(
+                                        "GLOBAL ECONOMY REWARD",
+                                        "Corporate Governance allocated a free +200 Kat tokens to all active citizens on system anniversary!",
+                                        "REWARD"
+                                    )
+                                },
+                                modifier = Modifier.weight(1.5f).height(34.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = TechCyan)
+                            ) {
+                                Text("Distribute Loot drops", color = DeepSlateBg, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Coins Purchases Refills Queue
+                Text("Kat Coin purchase request orders", color = GoldAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(4.dp))
+
+                val liveCoins = coinPurchases.filter { it.status == "PENDING" || it.status == "NEED_PROOF" }
+                if (liveCoins.isEmpty()) {
+                    Text("No supporters coins orders waiting on review.", color = MutedText, fontSize = 10.sp)
                 } else {
-                    activeCoins.forEach { req ->
-                        var feedbackText by remember { mutableStateOf("") }
-                        
+                    liveCoins.forEach { order ->
+                        var feedbackNoteText by remember { mutableStateOf("") }
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -5549,93 +7222,77 @@ fun AdministrationView(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column {
-                                        Text(req.packageName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                        Text("User: ${req.username} • Coins: +${req.coinAmount}", color = SoftGrayText, fontSize = 11.sp)
+                                        Text(order.packageName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text("User: ${order.username} • Coins yield: +${order.coinAmount} KC", color = SoftGrayText, fontSize = 10.sp)
                                     }
                                     Box(
                                         modifier = Modifier
                                             .background(
-                                                if (req.status == "PENDING") Color(0xFFFBBF24).copy(alpha = 0.15f)
+                                                if (order.status == "PENDING") Color(0xFFFBBF24).copy(alpha = 0.15f)
                                                 else Color(0xFFF97316).copy(alpha = 0.15f),
                                                 RoundedCornerShape(4.dp)
                                             )
                                             .padding(horizontal = 6.dp, vertical = 2.dp)
                                     ) {
-                                        Text(
-                                            req.status,
-                                            color = if (req.status == "PENDING") Color(0xFFFBBF24) else Color(0xFFF97316),
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                        Text(order.status, color = if (order.status == "PENDING") Color(0xFFFBBF24) else Color(0xFFF97316), fontSize = 8.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(6.dp))
-                                Text("Transaction Ref: ${req.transactionId}", color = Color.White, fontSize = 11.sp)
-                                Text("Screenshot proof file: ${req.proofImagePath}", color = CyanInfo, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                
-                                if (req.reviewerFeedback.isNotBlank()) {
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text("Feedback logs: ${req.reviewerFeedback}", color = Color(0xFFFCA5A5), fontSize = 10.sp)
-                                }
+                                Text("Cryptographic order ID: ${order.transactionId}", color = Color.White, fontSize = 10.sp)
+                                Text("Document image verification line: ${order.proofImagePath}", color = CyanInfo, fontSize = 9.sp, fontWeight = FontWeight.Bold)
 
-                                Spacer(modifier = Modifier.height(10.dp))
-
+                                Spacer(modifier = Modifier.height(8.dp))
                                 OutlinedTextField(
-                                    value = feedbackText,
-                                    onValueChange = { feedbackText = it },
-                                    placeholder = { Text("Enter staff comment (e.g. rejection feedback or missing details description)...", fontSize = 10.sp) },
-                                    modifier = Modifier.fillMaxWidth().testTag("admin_feedback_input_${req.id}"),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
-                                        focusedBorderColor = GoldAccent,
-                                        unfocusedBorderColor = ElevatedSlate,
-                                        focusedContainerColor = DeepSlateBg,
-                                        unfocusedContainerColor = DeepSlateBg
-                                    )
+                                    value = feedbackNoteText,
+                                    onValueChange = { feedbackNoteText = it },
+                                    placeholder = { Text("Write feedback details (needed if rejecting/asking proof)...", fontSize = 10.sp) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
                                 )
 
                                 Spacer(modifier = Modifier.height(10.dp))
-
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
+                                    // Approve transaction
                                     Button(
-                                        onClick = { viewModel.processCoinPurchaseRequest(req, "APPROVED", feedbackText) },
+                                        onClick = { viewModel.processCoinPurchaseRequest(order, "APPROVED", feedbackNoteText) },
                                         colors = ButtonDefaults.buttonColors(containerColor = GreenVerify),
-                                        modifier = Modifier.weight(1f).height(32.dp).testTag("admin_approve_coins_button_${req.id}")
+                                        modifier = Modifier.weight(1f).height(32.dp).testTag("admin_approve_coins_button_${order.id}")
                                     ) {
-                                        Text("✅ APPROVE", color = DeepSlateBg, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Text("✅ APPROVE", color = DeepSlateBg, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                     }
 
+                                    // Reject transaction
                                     Button(
-                                        onClick = { 
-                                            if (feedbackText.isBlank()) {
-                                                viewModel.alertMessage.value = "Specify rejection details in comments first!"
+                                        onClick = {
+                                            if (feedbackNoteText.isBlank()) {
+                                                viewModel.alertMessage.value = "Specify rejection feedback logs first!"
                                             } else {
-                                                viewModel.processCoinPurchaseRequest(req, "REJECTED", feedbackText)
+                                                viewModel.processCoinPurchaseRequest(order, "REJECTED", feedbackNoteText)
                                             }
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = RedUrgent),
-                                        modifier = Modifier.weight(1.2f).height(32.dp).testTag("admin_reject_coins_button_${req.id}")
+                                        modifier = Modifier.weight(1f).height(32.dp).testTag("admin_reject_coins_button_${order.id}")
                                     ) {
-                                        Text("❌ REJECT", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Text("❌ REJECT", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                     }
 
+                                    // Request more proof
                                     Button(
-                                        onClick = { 
-                                            if (feedbackText.isBlank()) {
-                                                viewModel.alertMessage.value = "Describe what proof is required in comments first!"
+                                        onClick = {
+                                            if (feedbackNoteText.isBlank()) {
+                                                viewModel.alertMessage.value = "Describe what proof is required first!"
                                             } else {
-                                                viewModel.processCoinPurchaseRequest(req, "NEED_PROOF", feedbackText)
+                                                viewModel.processCoinPurchaseRequest(order, "NEED_PROOF", feedbackNoteText)
                                             }
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = ElevatedSlate),
-                                        modifier = Modifier.weight(1.2f).height(32.dp).testTag("admin_request_coins_proof_button_${req.id}")
+                                        modifier = Modifier.weight(1.1f).height(32.dp).testTag("admin_request_coins_proof_button_${order.id}")
                                     ) {
-                                        Text("📨 NEED PROOF", color = GoldAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Text("📨 ASK PROOF", color = GoldAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -5643,109 +7300,232 @@ fun AdministrationView(
                     }
                 }
             }
-            "NET_WORTH" -> {
-                Text("🛡 Wealth Proofs Verification Queue", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+
+            "ANNOUNCEMENTS" -> {
+                // --- ANNOUNCEMENT BROADCAST WRITER ---
+                Text(
+                    "📢 BROADCAST ANNOUNCEMENT INTERFACE",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp
+                )
                 Spacer(modifier = Modifier.height(6.dp))
-                val pendingRequests = netWorthRequests.filter { it.status == "PENDING" }
-                if (pendingRequests.isEmpty()) {
-                    Text("Pristine! No net worth verifications pending review.", color = MutedText, fontSize = 11.sp)
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = CardSlateBg)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text("Draft system notification message", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Text("Pushes critical alerts dynamically to all user devices.", color = SoftGrayText, fontSize = 9.sp)
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = announceSubject,
+                            onValueChange = { announceSubject = it },
+                            placeholder = { Text("Notification Subject Headline (e.g. Server Maintenance Scheduled)", fontSize = 11.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        OutlinedTextField(
+                            value = announceMsgText,
+                            onValueChange = { announceMsgText = it },
+                            placeholder = { Text("Write announcement detailed description context...", fontSize = 11.sp) },
+                            modifier = Modifier.fillMaxWidth().height(80.dp),
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text("Broadcast priority categorization badge:", color = SoftGrayText, fontSize = 10.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf("ALERT" to "🚨 CRITICAL ALERT", "INFO" to "ℹ GENERAL INFO", "REWARD" to "🎁 EVENT GIFT").forEach { (typeVal, label) ->
+                                val isChosen = announcePushCategory == typeVal
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isChosen) ElevatedSlate else DeepSlateBg)
+                                        .border(0.5.dp, if (isChosen) GoldAccent else Color.Transparent, RoundedCornerShape(8.dp))
+                                        .clickable { announcePushCategory = typeVal }
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(label, color = if (isChosen) Color.White else SoftGrayText, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Button(
+                            onClick = {
+                                if (announceSubject.isBlank() || announceMsgText.isBlank()) {
+                                    viewModel.alertMessage.value = "Enter both announcement subject and description context!"
+                                } else {
+                                    viewModel.adminPublishNotification(announceSubject, announceMsgText, announcePushCategory)
+                                    announceSubject = ""
+                                    announceMsgText = ""
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = GoldAccent)
+                        ) {
+                            Text("🔊 BROADCAST NOTIFICATION TO HUB", color = DeepSlateBg, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+
+            "SYSTEM_HEALTH" -> {
+                // --- SYSTEM STATUS & AUDIT LOGS ---
+                Text(
+                    "🟢 SECURITY SECONDS SYSTEM HEALTH",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Pulsating status health metrics
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.8f))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("Operational Node Microservices Status", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        listOf(
+                            "SQLite Local Room Database Storage Node" to "🟢 ONLINE - PRISTINE",
+                            "Gemini AI LLM Cognition Processor Client" to "🟢 ONLINE - STEADY (3.5 FLASH)",
+                            "Cloud Multi-Media Proof Assets Directory Storage" to "🟢 ONLINE - SYNCED",
+                            "Universal Secure Escrows Cryptographic Guard" to "🟢 SECURED - GUARDED",
+                            "Authorized Google Identity Auth Services Protocol" to "🟢 STABLE"
+                        ).forEach { (microservice, stateRep) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(microservice, color = SoftGrayText, fontSize = 10.sp)
+                                Text(stateRep, color = Color(0xFF22C55E), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { viewModel.verifySelf(true) },
+                        modifier = Modifier.weight(1f).height(38.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenVerify)
+                    ) {
+                        Text("Grant ID Verified", color = DeepSlateBg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = { viewModel.triggerFactoryCleanup() },
+                        modifier = Modifier.weight(1.3f).height(38.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ElevatedSlate)
+                    ) {
+                        Text("Owner Database Sync Wipe", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Chronological Security Audit Log
+                Text("Chronological Security Audit Log", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(6.dp))
+
+                if (auditLogs.isEmpty()) {
+                    Text("No administrative audit logs captured.", color = MutedText, fontSize = 11.sp)
                 } else {
-                    pendingRequests.forEach { req ->
-                        var rejectReasonText by remember { mutableStateOf("") }
+                    auditLogs.take(30).forEach { log ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            colors = CardDefaults.cardColors(containerColor = CardSlateBg),
-                            border = BorderStroke(1.dp, ElevatedSlate)
+                                .padding(vertical = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.5f)),
+                            border = BorderStroke(0.5.dp, ElevatedSlate.copy(alpha = 0.3f))
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
+                            Column(modifier = Modifier.padding(10.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text("Username: ${req.username}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    Text("Status: ${req.status}", color = GoldAccent, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                    Text(log.action.uppercase(), color = GoldAccent, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp)
+                                    Text(log.actorName, color = SoftGrayText, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                 }
-                                
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text("🏦 Submited Bank Balance: ${formatCurrency(req.bankBalance)}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                Text("Proof File details: ${req.bankScreenshotPath}", color = CyanInfo, fontSize = 10.sp)
-
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("🚗 Vehicles Submited Checklist:", color = GoldAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                if (req.vehiclesJson.isNotBlank() && req.vehiclesJson != "[]") {
-                                    Text(req.vehiclesJson, color = SoftGrayText, fontSize = 10.sp)
-                                } else {
-                                    Text("No Vehicles listed inside proofs.", color = SoftGrayText, fontSize = 10.sp)
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("🏠 Properties Submited Checklist:", color = GoldAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                if (req.propertiesJson.isNotBlank() && req.propertiesJson != "[]") {
-                                    Text(req.propertiesJson, color = SoftGrayText, fontSize = 10.sp)
-                                } else {
-                                    Text("No Properties listed inside proofs.", color = SoftGrayText, fontSize = 10.sp)
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("🏢 Businesses Submited Checklist:", color = GoldAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                if (req.businessesJson.isNotBlank() && req.businessesJson != "[]") {
-                                    Text(req.businessesJson, color = SoftGrayText, fontSize = 10.sp)
-                                } else {
-                                    Text("No Businesses listed inside proofs.", color = SoftGrayText, fontSize = 10.sp)
-                                }
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                OutlinedTextField(
-                                    value = rejectReasonText,
-                                    onValueChange = { rejectReasonText = it },
-                                    placeholder = { Text("Reason for Rejection (Missing Evidence, Invalid Screenshot, Outdated Screenshot, Insufficient Proof, etc.)...", fontSize = 11.sp) },
-                                    modifier = Modifier.fillMaxWidth().testTag("net_worth_reject_reason_input_${req.id}"),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
-                                        focusedBorderColor = GoldAccent,
-                                        unfocusedBorderColor = ElevatedSlate,
-                                        focusedContainerColor = DeepSlateBg,
-                                        unfocusedContainerColor = DeepSlateBg
-                                    )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(log.details, color = Color.White, fontSize = 11.sp)
+                                Text(
+                                    "SECURED ENTRY • SEC_HASH=E9A${log.id ?: Random.nextInt(90) + 10}",
+                                    color = SoftGrayText,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Button(
-                                        onClick = { viewModel.processNetWorthRequest(req, "APPROVED") },
-                                        colors = ButtonDefaults.buttonColors(containerColor = GreenVerify),
-                                        modifier = Modifier.weight(1f).testTag("net_worth_approve_button_${req.id}")
-                                    ) {
-                                        Text("APPROVE & SUM CERTIFY", color = DeepSlateBg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
-
-                                    Button(
-                                        onClick = { 
-                                            if (rejectReasonText.isBlank()) {
-                                                viewModel.alertMessage.value = "Specify rejection feedback comments first!"
-                                            } else {
-                                                viewModel.processNetWorthRequest(req, "REJECTED", rejectReasonText)
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = RedUrgent),
-                                        modifier = Modifier.weight(1.2f).testTag("net_worth_reject_button_${req.id}")
-                                    ) {
-                                        Text("REJECT WEALTH", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
                             }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun StatDisplayCard(
+    title: String,
+    value: String,
+    subtext: String,
+    accentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = CardSlateBg.copy(alpha = 0.85f)),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(0.8.dp, ElevatedSlate.copy(alpha = 0.4f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                title.uppercase(),
+                color = SoftGrayText,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.5.sp
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                value,
+                color = accentColor,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Black
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                subtext,
+                color = MutedText,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
@@ -6380,8 +8160,8 @@ object KATDatabase {
 // DYNAMIC CREATE DIALOGUE SETUP FORM
 // ----------------------------------------------------
 @Composable
-fun CreateListingDialog(viewModel: MarketViewModel, onDismiss: () -> Unit) {
-    var stepCategory by remember { mutableStateOf("Vehicle") } // Vehicle, Property, Business, Skin, Item
+fun CreateListingDialog(viewModel: MarketViewModel, initialCategory: String = "Vehicle", onDismiss: () -> Unit) {
+    var stepCategory by remember { mutableStateOf(initialCategory) } // Vehicle, Property, Business, Skin, Item
 
     // Form inputs variables
     var inputTitle by remember { mutableStateOf("") }

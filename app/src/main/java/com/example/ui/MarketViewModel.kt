@@ -91,6 +91,9 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
     val bountyClaims: StateFlow<List<BountyClaim>> = repository.allBountyClaimsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val marketTransactions: StateFlow<List<MarketTransaction>> = repository.allMarketTransactionsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // --- UI Navigation and Filtering State ---
     var currentSection = MutableStateFlow(MainSection.DASHBOARD)
     val searchQuery = MutableStateFlow("")
@@ -278,6 +281,19 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val ok = repository.purchaseListing(listing)
             if (ok) {
+                // Log Completed Trade to the real-time Ledger
+                repository.insertMarketTransaction(
+                    MarketTransaction(
+                        buyerName = "NIKA_BOSS_RP",
+                        sellerName = listing.sellerName,
+                        assetTitle = listing.title,
+                        category = listing.category,
+                        price = listing.askingPrice,
+                        transactionType = "ESCROW",
+                        isUserInvolved = true,
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
                 selectedListing.value = null
                 alertMessage.value = "Successfully purchased '${listing.title}'! Clean license transferred."
             } else {
@@ -595,6 +611,45 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    // --- Admin Panel Specific Override Helpers ---
+    fun adminSaveUserProfile(profile: UserProfile) {
+        viewModelScope.launch {
+            repository.saveProfile(profile)
+            repository.insertAuditLog(AuditLog("Administrator", "User Profile Modification", "Updated user dossier details for user: ${profile.username} (id: ${profile.id})."))
+        }
+    }
+
+    fun adminBanUser(profile: UserProfile) {
+        viewModelScope.launch {
+            val updated = profile.copy(role = "Banned", reputation = -999, title = "☠️ Exiled Corp")
+            repository.saveProfile(updated)
+            repository.insertAuditLog(AuditLog("Administrator", "User Ban Lockdown", "Globally quarantined and banned ${profile.username} from system database."))
+            alertMessage.value = "Marketplace Security Lockdown: user ${profile.username} is now globally banned!"
+        }
+    }
+
+    fun adminSaveListing(listing: MarketListing) {
+        viewModelScope.launch {
+            repository.updateListing(listing)
+            repository.insertAuditLog(AuditLog("Administrator", "Listing Modified", "Overrode listing parameters for ID #${listing.id}: ${listing.title}."))
+        }
+    }
+
+    fun adminDeleteListing(listing: MarketListing) {
+        viewModelScope.launch {
+            repository.deleteOrArchiveListing(listing)
+            repository.insertAuditLog(AuditLog("Administrator", "Listing Removal", "Archived and removed listing ID #${listing.id} from boards."))
+        }
+    }
+
+    fun adminPublishNotification(title: String, body: String, category: String) {
+        viewModelScope.launch {
+            repository.addNotification(title, body, category)
+            repository.insertAuditLog(AuditLog("Administrator", "Global Broadcast", "Broadcasted alert notification: $title"))
+            alertMessage.value = "Global Broadcast System Success: pushed \"$title\" Notification."
+        }
+    }
+
     // Owner administrative operations
     fun triggerFactoryCleanup() {
         viewModelScope.launch {
@@ -749,6 +804,20 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                 val newBank = currentBank + tradeRoom.agreedPrice
                 repository.saveProfile(meProfile.copy(bankBalance = newBank, completedDeals = meProfile.completedDeals + 1))
             }
+
+            // Log Completed Trade to the real-time Ledger
+            repository.insertMarketTransaction(
+                MarketTransaction(
+                    buyerName = tradeRoom.buyerName,
+                    sellerName = tradeRoom.sellerName,
+                    assetTitle = tradeRoom.listingTitle,
+                    category = "Asset",
+                    price = tradeRoom.agreedPrice,
+                    transactionType = "ESCROW",
+                    isUserInvolved = true,
+                    timestamp = System.currentTimeMillis()
+                )
+            )
 
             repository.insertAuditLog(AuditLog("me", "Complete Trade", "Trade Room finalized. Price: \$${formatCurrencySimulated(tradeRoom.agreedPrice)} for ${tradeRoom.listingTitle}."))
 
@@ -1495,6 +1564,22 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
                             "REWARD"
                         )
                         repository.insertAuditLog(AuditLog("Escrow Bot", "Vetted Transaction Completed", "Secured Escrow trade of $assetName valued at \$${formatCurrencySimulated(value)}."))
+
+                        // Insert real-time transaction history record
+                        val buyerName = mockPlayers.filter { it != otherParty }.random()
+                        val category = listOf("Vehicle", "Property", "Business", "Item").random()
+                        repository.insertMarketTransaction(
+                            MarketTransaction(
+                                buyerName = buyerName,
+                                sellerName = otherParty,
+                                assetTitle = assetName,
+                                category = category,
+                                price = value,
+                                transactionType = listOf("ESCROW", "RCD", "COMMUNITY").random(),
+                                isUserInvolved = false,
+                                timestamp = System.currentTimeMillis()
+                            )
+                        )
                     }
                 }
             }

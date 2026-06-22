@@ -380,6 +380,68 @@ class MarketRepository(private val context: Context) {
                     bountyTitle = "Investigate Scam Case"
                 )
             )
+
+            // 13. Seed Completed Market Transactions
+            dao.insertMarketTransaction(
+                MarketTransaction(
+                    buyerName = "NIKA_BOSS_RP",
+                    sellerName = "Aditya_Grand",
+                    assetTitle = "Mercedes-Benz G63 AMG Brabus",
+                    category = "Vehicle",
+                    price = 115000000L,
+                    transactionType = "ESCROW",
+                    isUserInvolved = true,
+                    timestamp = System.currentTimeMillis() - 86400000L * 3 // 3 days ago
+                )
+            )
+            dao.insertMarketTransaction(
+                MarketTransaction(
+                    buyerName = "Aditya_Grand",
+                    sellerName = "Roman_Vercetti",
+                    assetTitle = "Mirror Park Suburban Condo",
+                    category = "Property",
+                    price = 85000000L,
+                    transactionType = "ESCROW",
+                    isUserInvolved = false,
+                    timestamp = System.currentTimeMillis() - 86400000L * 2 // 2 days ago
+                )
+            )
+            dao.insertMarketTransaction(
+                MarketTransaction(
+                    buyerName = "NIKA_BOSS_RP",
+                    sellerName = "Officer_Ivan",
+                    assetTitle = "Sovereign Gold Watch",
+                    category = "Item",
+                    price = 35000000L,
+                    transactionType = "ESCROW",
+                    isUserInvolved = true,
+                    timestamp = System.currentTimeMillis() - 36000000L // 10 hours ago
+                )
+            )
+            dao.insertMarketTransaction(
+                MarketTransaction(
+                    buyerName = "Boss_RP",
+                    sellerName = "Roman_Vercetti",
+                    assetTitle = "Gas Station #12 Premium",
+                    category = "Business",
+                    price = 450000000L,
+                    transactionType = "RCD",
+                    isUserInvolved = false,
+                    timestamp = System.currentTimeMillis() - 18000000L // 5 hours ago
+                )
+            )
+            dao.insertMarketTransaction(
+                MarketTransaction(
+                    buyerName = "Elena_GTR",
+                    sellerName = "Dmitry_Sokolov",
+                    assetTitle = "Gold Syndicate Kevlar Suit",
+                    category = "Skin",
+                    price = 1200000L,
+                    transactionType = "COMMUNITY",
+                    isUserInvolved = false,
+                    timestamp = System.currentTimeMillis() - 3600000L // 1 hour ago
+                )
+            )
         }
     }
 
@@ -1202,5 +1264,16 @@ class MarketRepository(private val context: Context) {
                 "Membership status changed. Joined Server: $inServer."
             )
         )
+    }
+
+    // --- Market Transaction Ledger ---
+    val allMarketTransactionsFlow: Flow<List<MarketTransaction>> = dao.getAllMarketTransactionsFlow()
+
+    suspend fun insertMarketTransaction(transaction: MarketTransaction) {
+        dao.insertMarketTransaction(transaction)
+    }
+
+    suspend fun clearMarketTransactions() {
+        dao.clearMarketTransactions()
     }
 }

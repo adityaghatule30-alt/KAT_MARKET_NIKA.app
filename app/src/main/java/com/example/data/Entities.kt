@@ -361,3 +361,17 @@ data class BountyClaim(
     @PrimaryKey(autoGenerate = true) val id: Int = 0
 )
 
+@Entity(tableName = "market_transactions")
+data class MarketTransaction(
+    val buyerName: String,
+    val sellerName: String,
+    val assetTitle: String,
+    val category: String, // "Vehicle", "Property", "Business", "Skin", "Item"
+    val price: Long,
+    val timestamp: Long = System.currentTimeMillis(),
+    val transactionType: String = "ESCROW", // "ESCROW", "RCD", "COMMUNITY"
+    val isUserInvolved: Boolean = false,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0
+)
+
+
