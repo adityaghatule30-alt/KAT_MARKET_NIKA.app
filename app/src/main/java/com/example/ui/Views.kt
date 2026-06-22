@@ -28,6 +28,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
+import coil.compose.AsyncImage
 import com.example.data.*
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
@@ -986,6 +990,7 @@ fun RequestNetWorthVerificationDialog(
 ) {
     var bankBalanceText by remember { mutableStateOf((userProfile?.bankBalance ?: 0L).toString()) }
     var selectedBankScreenshot by remember { mutableStateOf("bank_statement_proof_01.png") }
+    var pickedBankImageUri by remember { mutableStateOf<Uri?>(null) }
     
     // Vehicles builder state
     var vehicleInputName by remember { mutableStateOf("") }
@@ -994,6 +999,9 @@ fun RequestNetWorthVerificationDialog(
     var vehicleScreenshotListOk by remember { mutableStateOf(false) }
     var vehicleScreenshotStorageOk by remember { mutableStateOf(false) }
     var vehicleScreenshotGarageOk by remember { mutableStateOf(false) }
+    var vehicleListImageUri by remember { mutableStateOf<Uri?>(null) }
+    var vehicleStorageImageUri by remember { mutableStateOf<Uri?>(null) }
+    var vehicleGarageImageUri by remember { mutableStateOf<Uri?>(null) }
     val vehiclesAdded = remember { mutableStateListOf<ClientVerifiedVehicle>() }
 
     // Properties builder state
@@ -1001,6 +1009,7 @@ fun RequestNetWorthVerificationDialog(
     var propertyInputLocation by remember { mutableStateOf("") }
     var propertyInputValue by remember { mutableStateOf("") }
     var propertyScreenshotOk by remember { mutableStateOf(false) }
+    var propertyImageUri by remember { mutableStateOf<Uri?>(null) }
     val propertiesAdded = remember { mutableStateListOf<ClientVerifiedProperty>() }
 
     // Businesses builder state
@@ -1009,7 +1018,72 @@ fun RequestNetWorthVerificationDialog(
     var businessInputProfit by remember { mutableStateOf("") }
     var businessScreenshotOwnershipOk by remember { mutableStateOf(false) }
     var businessScreenshotProfitOk by remember { mutableStateOf(false) }
+    var businessOwnershipImageUri by remember { mutableStateOf<Uri?>(null) }
+    var businessProfitImageUri by remember { mutableStateOf<Uri?>(null) }
     val businessesAdded = remember { mutableStateListOf<ClientVerifiedBusiness>() }
+
+    val bankImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            pickedBankImageUri = uri
+            selectedBankScreenshot = uri.toString()
+        }
+    }
+
+    val vehicleListLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            vehicleListImageUri = uri
+            vehicleScreenshotListOk = true
+        }
+    }
+
+    val vehicleStorageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            vehicleStorageImageUri = uri
+            vehicleScreenshotStorageOk = true
+        }
+    }
+
+    val vehicleGarageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            vehicleGarageImageUri = uri
+            vehicleScreenshotGarageOk = true
+        }
+    }
+
+    val propertyImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            propertyImageUri = uri
+            propertyScreenshotOk = true
+        }
+    }
+
+    val businessOwnershipLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            businessOwnershipImageUri = uri
+            businessScreenshotOwnershipOk = true
+        }
+    }
+
+    val businessProfitLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            businessProfitImageUri = uri
+            businessScreenshotProfitOk = true
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -1082,16 +1156,43 @@ fun RequestNetWorthVerificationDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     bankFiles.forEach { file ->
-                        val isSel = selectedBankScreenshot == file
+                        val isSel = selectedBankScreenshot == file && pickedBankImageUri == null
                         Box(
                             modifier = Modifier
                                 .background(if (isSel) GoldAccent.copy(alpha = 0.2f) else ElevatedSlate, RoundedCornerShape(6.dp))
                                 .border(1.dp, if (isSel) GoldAccent else Color.Transparent, RoundedCornerShape(6.dp))
-                                .clickable { selectedBankScreenshot = file }
+                                .clickable { 
+                                    selectedBankScreenshot = file 
+                                    pickedBankImageUri = null
+                                }
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Text(file, color = if (isSel) GoldAccent else Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = { bankImageLauncher.launch("image/*") },
+                        colors = ButtonDefaults.buttonColors(containerColor = ElevatedSlate)
+                    ) {
+                        Text(if (pickedBankImageUri != null) "📸 CHANGE CUSTOM IMAGE" else "📂 CHOOSE REAL IMAGE", color = GoldAccent, fontSize = 10.sp)
+                    }
+                    if (pickedBankImageUri != null) {
+                        AsyncImage(
+                            model = pickedBankImageUri,
+                            contentDescription = "Bank screenshot proof",
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .border(1.dp, GoldAccent, RoundedCornerShape(4.dp))
+                        )
                     }
                 }
 
@@ -1151,17 +1252,47 @@ fun RequestNetWorthVerificationDialog(
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("Required screenshots Checklist:", color = SoftGrayText, fontSize = 10.sp)
                         
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Checkbox(checked = vehicleScreenshotListOk, onCheckedChange = { vehicleScreenshotListOk = it })
-                            Text("Vehicle List Photo (.png)", color = Color.White, fontSize = 10.sp)
+                            TextButton(onClick = { vehicleListLauncher.launch("image/*") }) {
+                                Text(if (vehicleListImageUri != null) "🔗 Vehicle List Photo (Selected)" else "📁 Upload Vehicle List Photo (.png)", color = if (vehicleScreenshotListOk) GoldAccent else Color.White, fontSize = 10.sp)
+                            }
+                            if (vehicleListImageUri != null) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                AsyncImage(
+                                    model = vehicleListImageUri,
+                                    contentDescription = "Vehicle list photo",
+                                    modifier = Modifier.size(30.dp).clip(RoundedCornerShape(4.dp))
+                                )
+                            }
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Checkbox(checked = vehicleScreenshotStorageOk, onCheckedChange = { vehicleScreenshotStorageOk = it })
-                            Text("Vehicle Storage Photo (.png)", color = Color.White, fontSize = 10.sp)
+                            TextButton(onClick = { vehicleStorageLauncher.launch("image/*") }) {
+                                Text(if (vehicleStorageImageUri != null) "🔗 Vehicle Storage Photo (Selected)" else "📁 Upload Vehicle Storage Photo (.png)", color = if (vehicleScreenshotStorageOk) GoldAccent else Color.White, fontSize = 10.sp)
+                            }
+                            if (vehicleStorageImageUri != null) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                AsyncImage(
+                                    model = vehicleStorageImageUri,
+                                    contentDescription = "Vehicle storage photo",
+                                    modifier = Modifier.size(30.dp).clip(RoundedCornerShape(4.dp))
+                                )
+                            }
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Checkbox(checked = vehicleScreenshotGarageOk, onCheckedChange = { vehicleScreenshotGarageOk = it })
-                            Text("Garage Screenshot (.png)", color = Color.White, fontSize = 10.sp)
+                            TextButton(onClick = { vehicleGarageLauncher.launch("image/*") }) {
+                                Text(if (vehicleGarageImageUri != null) "🔗 Garage Screenshot (Selected)" else "📁 Upload Garage Screenshot (.png)", color = if (vehicleScreenshotGarageOk) GoldAccent else Color.White, fontSize = 10.sp)
+                            }
+                            if (vehicleGarageImageUri != null) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                AsyncImage(
+                                    model = vehicleGarageImageUri,
+                                    contentDescription = "Vehicle garage photo",
+                                    modifier = Modifier.size(30.dp).clip(RoundedCornerShape(4.dp))
+                                )
+                            }
                         }
 
                         Button(
@@ -1184,6 +1315,9 @@ fun RequestNetWorthVerificationDialog(
                                         vehicleScreenshotListOk = false
                                         vehicleScreenshotStorageOk = false
                                         vehicleScreenshotGarageOk = false
+                                        vehicleListImageUri = null
+                                        vehicleStorageImageUri = null
+                                        vehicleGarageImageUri = null
                                     }
                                 } else {
                                     viewModel.alertMessage.value = "Specify valid vehicle name and value amount!"
@@ -1267,9 +1401,19 @@ fun RequestNetWorthVerificationDialog(
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Checkbox(checked = propertyScreenshotOk, onCheckedChange = { propertyScreenshotOk = it })
-                            Text("Property Ownership Proof Photo attached", color = Color.White, fontSize = 10.sp)
+                            TextButton(onClick = { propertyImageLauncher.launch("image/*") }) {
+                                Text(if (propertyImageUri != null) "🔗 Property Ownership Proof (Selected)" else "📁 Upload Property Ownership Proof Photo", color = if (propertyScreenshotOk) GoldAccent else Color.White, fontSize = 10.sp)
+                            }
+                            if (propertyImageUri != null) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                AsyncImage(
+                                    model = propertyImageUri,
+                                    contentDescription = "Property proof photo",
+                                    modifier = Modifier.size(30.dp).clip(RoundedCornerShape(4.dp))
+                                )
+                            }
                         }
 
                         Button(
@@ -1291,6 +1435,7 @@ fun RequestNetWorthVerificationDialog(
                                         propertyInputLocation = ""
                                         propertyInputValue = ""
                                         propertyScreenshotOk = false
+                                        propertyImageUri = null
                                     }
                                 } else {
                                     viewModel.alertMessage.value = "Specify valid property parameters first!"
@@ -1374,13 +1519,33 @@ fun RequestNetWorthVerificationDialog(
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Checkbox(checked = businessScreenshotOwnershipOk, onCheckedChange = { businessScreenshotOwnershipOk = it })
-                            Text("Business Ownership Screenshot attached", color = Color.White, fontSize = 10.sp)
+                            TextButton(onClick = { businessOwnershipLauncher.launch("image/*") }) {
+                                Text(if (businessOwnershipImageUri != null) "🔗 Business Ownership (Selected)" else "📁 Upload Business Ownership Screenshot", color = if (businessScreenshotOwnershipOk) GoldAccent else Color.White, fontSize = 10.sp)
+                            }
+                            if (businessOwnershipImageUri != null) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                AsyncImage(
+                                    model = businessOwnershipImageUri,
+                                    contentDescription = "Business ownership proof",
+                                    modifier = Modifier.size(30.dp).clip(RoundedCornerShape(4.dp))
+                                )
+                            }
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Checkbox(checked = businessScreenshotProfitOk, onCheckedChange = { businessScreenshotProfitOk = it })
-                            Text("Revenue Statistics proof attached", color = Color.White, fontSize = 10.sp)
+                            TextButton(onClick = { businessProfitLauncher.launch("image/*") }) {
+                                Text(if (businessProfitImageUri != null) "🔗 Revenue Statistics (Selected)" else "📁 Upload Revenue Statistics Proof", color = if (businessScreenshotProfitOk) GoldAccent else Color.White, fontSize = 10.sp)
+                            }
+                            if (businessProfitImageUri != null) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                AsyncImage(
+                                    model = businessProfitImageUri,
+                                    contentDescription = "Business profit proof",
+                                    modifier = Modifier.size(30.dp).clip(RoundedCornerShape(4.dp))
+                                )
+                            }
                         }
 
                         Button(
@@ -1403,6 +1568,8 @@ fun RequestNetWorthVerificationDialog(
                                         businessInputProfit = ""
                                         businessScreenshotOwnershipOk = false
                                         businessScreenshotProfitOk = false
+                                        businessOwnershipImageUri = null
+                                        businessProfitImageUri = null
                                     }
                                 } else {
                                     viewModel.alertMessage.value = "Specify business name and metrics amounts!"
@@ -4219,6 +4386,16 @@ fun UpiCoinPurchaseDialog(
 ) {
     var upiTxId by remember { mutableStateOf("") }
     var mockScreenshotSelected by remember { mutableStateOf("Screenshot_UPI_${packageName.replace(" ", "_")}_verified.png") }
+    var upiPickedImageUri by remember { mutableStateOf<Uri?>(null) }
+
+    val upiImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            upiPickedImageUri = uri
+            mockScreenshotSelected = uri.toString()
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -4313,7 +4490,7 @@ fun UpiCoinPurchaseDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.Start
                 ) {
-                    Text("Attach Simulated Payment Screenshot (Auto)", color = SoftGrayText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Attach Payment Screenshot (Auto or Custom)", color = SoftGrayText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(6.dp))
                     
                     Row(
@@ -4329,21 +4506,50 @@ fun UpiCoinPurchaseDialog(
                             Text("🖼️", fontSize = 18.sp)
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
-                                Text(mockScreenshotSelected, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("Generated payment receipt", color = SoftGrayText, fontSize = 8.sp)
+                                val displayFileName = if (upiPickedImageUri != null) {
+                                    upiPickedImageUri.toString()
+                                } else {
+                                    mockScreenshotSelected
+                                }
+                                Text(displayFileName, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(if (upiPickedImageUri != null) "Selected from device" else "Generated payment receipt", color = SoftGrayText, fontSize = 8.sp)
                             }
                         }
                         
-                        Button(
-                            onClick = {
-                                mockScreenshotSelected = "Screenshot_UPI_${packageName.replace(" ", "_")}_REF_${System.currentTimeMillis().toString().takeLast(6)}.png"
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = ElevatedSlate),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            modifier = Modifier.height(28.dp)
-                        ) {
-                            Text("RE-GEN", color = GoldAccent, fontSize = 8.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Button(
+                                onClick = { upiImageLauncher.launch("image/*") },
+                                colors = ButtonDefaults.buttonColors(containerColor = ElevatedSlate),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text("CHOOSE", color = GoldAccent, fontSize = 8.sp)
+                            }
+
+                            Button(
+                                onClick = {
+                                    mockScreenshotSelected = "Screenshot_UPI_${packageName.replace(" ", "_")}_REF_${System.currentTimeMillis().toString().takeLast(6)}.png"
+                                    upiPickedImageUri = null
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = ElevatedSlate),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text("RE-GEN", color = GoldAccent, fontSize = 8.sp)
+                            }
                         }
+                    }
+                    if (upiPickedImageUri != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        AsyncImage(
+                            model = upiPickedImageUri,
+                            contentDescription = "Custom payment receipt",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.dp, GoldAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                        )
                     }
                 }
 
@@ -6228,6 +6434,16 @@ fun ChatInboxView(viewModel: MarketViewModel) {
 
     var showTradeProofDialog by remember { mutableStateOf<TradeRoom?>(null) }
     var tradeProofPath by remember { mutableStateOf("") }
+    var tradeProofImageUri by remember { mutableStateOf<Uri?>(null) }
+
+    val tradeProofLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            tradeProofImageUri = uri
+            tradeProofPath = uri.toString()
+        }
+    }
 
     // Grouping existing chat messages into conversations list
     val conversations = remember(messages) {
@@ -6943,20 +7159,46 @@ fun ChatInboxView(viewModel: MarketViewModel) {
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Verify payments or asset transfers by inputting the in-character screenshot key path:", color = SoftGrayText, fontSize = 11.sp)
-                    OutlinedTextField(
-                        value = tradeProofPath,
-                        onValueChange = { tradeProofPath = it },
-                        modifier = Modifier.fillMaxWidth().testTag("trade_proof_input"),
-                        label = { Text("Proof filepath or transaction key", fontSize = 11.sp) },
-                        placeholder = { Text("e.g. file_root_grand_tx_screenshot_998.jpg", fontSize = 11.sp) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = CyanInfo,
-                            unfocusedBorderColor = ElevatedSlate
+                    Text("Verify payments or asset transfers by choosing a screenshot or inputting the in-character screenshot key path:", color = SoftGrayText, fontSize = 11.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = tradeProofPath,
+                            onValueChange = { tradeProofPath = it },
+                            modifier = Modifier.weight(1f).testTag("trade_proof_input"),
+                            label = { Text("Proof filepath or transaction key", fontSize = 11.sp) },
+                            placeholder = { Text("e.g. file_root_grand_tx_screenshot_998.jpg", fontSize = 11.sp) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = CyanInfo,
+                                unfocusedBorderColor = ElevatedSlate
+                            )
                         )
-                    )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Button(
+                            onClick = { tradeProofLauncher.launch("image/*") },
+                            colors = ButtonDefaults.buttonColors(containerColor = ElevatedSlate),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text("📂 PICK", color = CyanInfo, fontSize = 9.sp)
+                        }
+                    }
+                    if (tradeProofImageUri != null) {
+                        AsyncImage(
+                            model = tradeProofImageUri,
+                            contentDescription = "Trade proof image",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.dp, CyanInfo.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -7854,6 +8096,16 @@ fun BountyBoardView(viewModel: MarketViewModel) {
                     var claimDetails by remember { mutableStateOf("") }
                     var claimEvidence by remember { mutableStateOf("") }
                     var claimProofFile by remember { mutableStateOf("") }
+                    var bountyProofImageUri by remember { mutableStateOf<Uri?>(null) }
+                    
+                    val bountyProofLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.GetContent()
+                    ) { uri: Uri? ->
+                        if (uri != null) {
+                            bountyProofImageUri = uri
+                            claimProofFile = uri.toString()
+                        }
+                    }
 
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -7939,13 +8191,40 @@ fun BountyBoardView(viewModel: MarketViewModel) {
                                         textStyle = TextStyle(color = Color.White, fontSize = 10.sp)
                                     )
 
-                                    OutlinedTextField(
-                                        value = claimProofFile,
-                                        onValueChange = { claimProofFile = it },
-                                        placeholder = { Text("Attached screenshot resource path...", fontSize = 9.sp) },
+                                    Row(
                                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                                        textStyle = TextStyle(color = Color.White, fontSize = 10.sp)
-                                    )
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        OutlinedTextField(
+                                            value = claimProofFile,
+                                            onValueChange = { claimProofFile = it },
+                                            placeholder = { Text("Attached screenshot path...", fontSize = 9.sp) },
+                                            modifier = Modifier.weight(1f),
+                                            textStyle = TextStyle(color = Color.White, fontSize = 10.sp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Button(
+                                            onClick = { bountyProofLauncher.launch("image/*") },
+                                            colors = ButtonDefaults.buttonColors(containerColor = ElevatedSlate),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                            modifier = Modifier.height(34.dp)
+                                        ) {
+                                            Text("📂 PICK", color = GoldAccent, fontSize = 9.sp)
+                                        }
+                                    }
+                                    if (bountyProofImageUri != null) {
+                                        AsyncImage(
+                                            model = bountyProofImageUri,
+                                            contentDescription = "Bounty proof screenshot",
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(100.dp)
+                                                .padding(bottom = 8.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .border(1.dp, GoldAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                        )
+                                    }
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -7967,6 +8246,7 @@ fun BountyBoardView(viewModel: MarketViewModel) {
                                                     claimDetails = ""
                                                     claimEvidence = ""
                                                     claimProofFile = ""
+                                                    bountyProofImageUri = null
                                                 }
                                             },
                                             modifier = Modifier.weight(1f).testTag("bounty_claim_submit"),
