@@ -1,0 +1,6 @@
+{
+  "name": "KAT_MARKET_NIKA",
+  "description": "Premium Grand Mobile RP marketplace, gaming ledger, and AI trading companion.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
