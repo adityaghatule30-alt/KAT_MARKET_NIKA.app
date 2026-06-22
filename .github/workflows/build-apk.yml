@@ -22,12 +22,10 @@ jobs:
         java-version: '17'
         cache: 'gradle'
 
-    - name: Validate or Generate Gradle Wrapper
+    - name: Regenerate Gradle Wrapper to Avoid Corruption
       run: |
-        if [ ! -f "gradlew" ]; then
-          echo "gradlew is missing! Generating custom gradle wrapper..."
-          gradle wrapper
-        fi
+        rm -f gradle/wrapper/gradle-wrapper.jar
+        gradle wrapper
         chmod +x gradlew
 
     - name: Build Debug APK
