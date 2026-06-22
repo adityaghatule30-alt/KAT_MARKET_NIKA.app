@@ -1,0 +1,15 @@
+# Set default behavior to automatically normalize line endings
+* text=auto eol=lf
+
+# Explicitly mark binary files so Git does not modify them
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.keystore binary
+*.jks binary
+gradlew text eol=lf
+gradlew.bat text eol=crlf
